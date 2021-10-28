@@ -13,9 +13,14 @@ public class ConceptTransform {
 	private String sourceABoxLocationString;
 	private String operationName;
 	private String targetFileLocation;
+	private boolean isMappingFileDependent;
+	private String tempInputMapFilePath;
+	private String tempOutputMapFilePath;
 	private LinkedHashMap<String, MapperTransform> mapperTransformMap;
 	private LinkedHashMap<String, String> propertyMap;
 	private String rangeString;
+	private String namespaceTypeString;
+	private String namespaceValueString;
 
 	public ConceptTransform() {
 		super();
@@ -31,8 +36,13 @@ public class ConceptTransform {
 		this.rangeString = "";
 		this.operationName = "";
 		this.targetFileLocation = "";
+		this.setMappingFileDependent(false);
+		this.setTempInputMapFilePath("");
+		this.setTempOutputMapFilePath("");
 		this.mapperTransformMap = new LinkedHashMap<String, MapperTransform>();
 		this.setPropertyMap(new LinkedHashMap<String, String>());
+		this.namespaceTypeString = "";
+		this.namespaceValueString = "";
 	}
 
 	public ConceptTransform(String concept, String sourceType, String targetType, String iriValue, String iriValueType,
@@ -48,6 +58,9 @@ public class ConceptTransform {
 		this.targetCommonProperty = targetCommonProperty;
 		this.sourceABoxLocationString = sourceABoxLocationString;
 		this.mapperTransformMap = mapperTransformMap;
+		this.setMappingFileDependent(false);
+		this.setTempInputMapFilePath("");
+		this.setTempOutputMapFilePath("");
 	}
 
 	public String getSourceABoxLocationString() {
@@ -158,5 +171,45 @@ public class ConceptTransform {
 
 	public void setTargetFileLocation(String targetFileLocation) {
 		this.targetFileLocation = targetFileLocation;
+	}
+
+	public boolean isMappingFileDependent() {
+		return isMappingFileDependent;
+	}
+
+	public void setMappingFileDependent(boolean isMappingFileDependent) {
+		this.isMappingFileDependent = isMappingFileDependent;
+	}
+
+	public String getTempInputMapFilePath() {
+		return tempInputMapFilePath;
+	}
+
+	public void setTempInputMapFilePath(String tempInputMapFilePath) {
+		this.tempInputMapFilePath = tempInputMapFilePath;
+	}
+
+	public String getTempOutputMapFilePath() {
+		return tempOutputMapFilePath;
+	}
+
+	public void setTempOutputMapFilePath(String tempOutputMapFilePath) {
+		this.tempOutputMapFilePath = tempOutputMapFilePath;
+	}
+
+	public String getNamespaceTypeString() {
+		return namespaceTypeString;
+	}
+
+	public void setNamespaceTypeString(String namespaceTypeString) {
+		this.namespaceTypeString = namespaceTypeString;
+	}
+
+	public String getNamespaceValueString() {
+		return namespaceValueString;
+	}
+
+	public void setNamespaceValueString(String namespaceValueString) {
+		this.namespaceValueString = namespaceValueString;
 	}
 }
