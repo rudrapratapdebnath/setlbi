@@ -26,10 +26,12 @@ import org.apache.jena.rdf.model.RDFNode;
 
 import core.Expression;
 import core.FactEntryGeneration;
+import core.InstanceGenerator;
 import core.LevelEntryGenerator;
 import core.LevelEntryNew;
 import core.PrefixExtraction;
 import helper.Methods;
+import helper.Variables;
 import model.ConceptTransform;
 import model.SelectedLevel;
 import view.PanelETL;
@@ -43,11 +45,13 @@ public class Extraction {
 	private Model model;
 	private LinkedHashMap<String, String> prefixMap;
 	private ArrayList<String> allCubeLevels;
+	private ArrayList<ConceptTransform> conceptTransformList;
 
 	public Extraction() {
 		// TODO Auto-generated constructor stub
 		methods = new Methods();
 		prefixMap = new LinkedHashMap<>();
+		conceptTransformList = new ArrayList<ConceptTransform>();
 	}
 
 	public LinkedHashMap<String, LinkedHashMap<String, ArrayList<String>>> extractEndPointDatasets(String endPoint) {
@@ -905,6 +909,62 @@ public class Extraction {
 		
 		return arrayResult;
 	}
+	
+	public ArrayList<String> extractKeywords(String sparqlQueryString) {
+		ArrayList<String> keywordList = new ArrayList<String>();
+
+		String parts[] = sparqlQueryString.split("SELECT");
+		String sparqlString = parts[1];
+
+		String segments[] = sparqlString.split("WHERE");
+		sparqlString = segments[0];
+
+		if (!sparqlString.trim().equals("*")) {
+			String regEx = "(\\?[^\\)\\s]+)";
+			Pattern pattern = Pattern.compile(regEx);
+			Matcher matcher = pattern.matcher(sparqlString);
+
+			while (matcher.find()) {
+				String observationString = matcher.group(0).trim();
+				keywordList.add(observationString);
+			}
+
+			ArrayList<String> arrayList = new ArrayList<String>();
+
+			String partsOne[] = sparqlString.split("as");
+			for (int i = partsOne.length - 1; i > 0; i--) {
+				String lastKeyString = keywordList.get(keywordList.size() - 1);
+				keywordList.remove(keywordList.size() - 1);
+				keywordList.remove(keywordList.size() - 1);
+				arrayList.add(lastKeyString);
+			}
+
+			for (int i = keywordList.size() - 1; i >= 0; i--) {
+				String lastKeyString = keywordList.get(i);
+				arrayList.add(lastKeyString);
+			}
+
+			keywordList = new ArrayList<String>();
+
+			for (int i = arrayList.size() - 1; i >= 0; i--) {
+				String lastKeyString = arrayList.get(i);
+				keywordList.add(lastKeyString);
+			}
+		} else {
+			String regEx = "(\\?[a-zA-Z1-9])";
+			Pattern pattern = Pattern.compile(regEx);
+			Matcher matcher = pattern.matcher(sparqlQueryString);
+
+			while (matcher.find()) {
+				String observationString = matcher.group(0).trim();
+				if (!keywordList.contains(observationString)) {
+					keywordList.add(observationString);
+				}
+			}
+		}
+
+		return keywordList;
+	}
 
 	public boolean readModel(String filePath, String type) {
 		// TODO Auto-generated method stub
@@ -1125,47 +1185,141 @@ public class Extraction {
 		
 		if (model != null) {
 			for (String selectionString : selectedArrayList) {
-				ArrayList<ConceptTransform> conceptTransforms = new ArrayList<>();
-				
 				selectionString = prefixExtraction.assignIRI(selectionString);
 				String bracketString = Methods.bracketString(selectionString);
 				
-				LinkedHashMap<Integer, ConceptTransform> dependencyMap = new LinkedHashMap<Integer, ConceptTransform>();
-				extractOperation(bracketString, model, selectionString, dependencyMap);
+				conceptTransformList = new ArrayList<>();
+				extractOperation(bracketString, model, selectionString);
 				
-//				System.out.println("##### Dependency Map Size: " + dependencyMap.size());
+//				System.out.println("##### Dependency Map Size: " + conceptTransformList.size());
 				
-				for (Integer index : dependencyMap.keySet()) {
-					ConceptTransform conceptTransform = dependencyMap.get(index);
-					setTargetPaths(conceptTransform, dependencyMap, index);
-					conceptTransforms.add(conceptTransform);
+				for (int i = 0; i < conceptTransformList.size(); i++) {
+					ConceptTransform conceptTransform = conceptTransformList.get(i);
+					setTargetPath(conceptTransform, i, mapPath);
 				}
 				
-				finalMap.put(selectionString, conceptTransforms);
+				finalMap.put(selectionString, conceptTransformList);
 			}
 		}
 		
 		return finalMap;
 	}
 
+	private void setTargetPath(ConceptTransform conceptTransform, int index, String mapPath) {
+		// TODO Auto-generated method stub
+		if (conceptTransform.getOperationName().equals(PanelETL.MULTIPLE_TRANFORM)) {
+			for (int j = 0; j < index; j++) {
+				ConceptTransform transform = conceptTransformList.get(j);
+				
+				if (conceptTransform.getTargetType().equals(transform.getTargetType())) {
+					conceptTransform.setTargetFileLocation(transform.getTargetFileLocation());
+					
+					return;
+				}
+			}
+		} else {
+			String targetPath = "C:\\Users\\Amrit\\Documents\\SETL\\" + conceptTransform.getOperationName() + "_" + Methods.getTime() + "_" + Methods.randomNumber() + ".ttl";
+			
+			for (int j = index + 1; j < conceptTransformList.size(); j++) {
+				ConceptTransform transform = conceptTransformList.get(j);
+				
+				if (conceptTransform.getConcept().equals(transform.getConcept())) {
+					transform.setSourceABoxLocationString(targetPath);
+					conceptTransform.setTargetFileLocation(targetPath);
+					
+					if (conceptTransform.getTempInputMapFilePath().isEmpty()) {
+						conceptTransform.setTempInputMapFilePath(mapPath);
+						conceptTransform.setTempOutputMapFilePath(generateTempMapFile(conceptTransform));
+						transform.setTempInputMapFilePath(conceptTransform.getTempOutputMapFilePath());
+					}
+					
+					return;
+				}
+			}
+			
+			for (int j = index + 1; j < conceptTransformList.size(); j++) {
+				ConceptTransform transform = conceptTransformList.get(j);
+				
+				if (conceptTransform.getTargetType().equals(transform.getSourceType())) {
+					transform.setSourceABoxLocationString(targetPath);
+					conceptTransform.setTargetFileLocation(targetPath);
+					
+					return;
+				}
+			}
+			
+			if (conceptTransform.getTargetFileLocation().isEmpty()) {
+				conceptTransform.setTargetFileLocation(targetPath);
+			}	
+		}
+	}
+
+	private String generateTempMapFile(ConceptTransform conceptTransform) {
+		// TODO Auto-generated method stub
+		String mapFileName = "map_" + conceptTransform.getOperationName() + "_" + Methods.getTime() + ".ttl";
+		return mapFileName;
+	}
+
+	private void setTargetPaths(ConceptTransform conceptTransform,
+			LinkedHashMap<Integer, ConceptTransform> dependencyMap, int index) {
+		if (conceptTransform.getOperationName().equals(PanelETL.MULTIPLE_TRANFORM)) {
+			for (Integer key : dependencyMap.keySet()) {
+				ConceptTransform conceptTransform2 = dependencyMap.get(key);
+				
+				if (conceptTransform2.getTargetType().equals(conceptTransform.getSourceType())) {
+					conceptTransform.setSourceABoxLocationString(conceptTransform2.getTargetFileLocation());
+				} else if (conceptTransform2.getTargetType().equals(conceptTransform.getTargetType())) {
+					conceptTransform.setTargetFileLocation(conceptTransform2.getTargetFileLocation());
+				}
+			}
+		} else {
+			if (conceptTransform.getTargetFileLocation().length() == 0) {
+				String targetPath = "C:\\Users\\Amrit\\Documents\\SETL\\" + conceptTransform.getOperationName() + "_" + Methods.getTime() + "_" + Methods.randomNumber() + ".ttl";
+				
+				conceptTransform.setTargetFileLocation(targetPath);
+			}
+		}
+		
+		if (dependencyMap.containsKey(index + 1)) {
+			ConceptTransform conceptTransform2 = dependencyMap.get(index + 1);
+			
+			if (!conceptTransform2.getOperationName().equals(PanelETL.MULTIPLE_TRANFORM)) {
+				if (conceptTransform.getTargetType().equals(conceptTransform2.getSourceType())) {
+					conceptTransform2.setSourceABoxLocationString(conceptTransform.getTargetFileLocation());
+				}
+			}
+			
+			dependencyMap.replace(index + 1, conceptTransform2);
+		}
+	}
+
 	public String performOperation(ConceptTransform conceptTransform, String mapPath, String tboxPath) {
 		// TODO Auto-generated method stub
-//		System.out.println("Concept No: " + index);
-//		System.out.println("Concept No: " + conceptTransform.getOperationName());
-//		System.out.println("Source: " + conceptTransform.getSourceABoxLocationString());
-//		System.out.println("Target: " + conceptTransform.getTargetFileLocation());
-//		System.out.println("Source Type: " + conceptTransform.getSourceType());
-//		System.out.println("Target Type: " + conceptTransform.getTargetType());
+		System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
+		System.out.println("Concept No: " + conceptTransform.getOperationName());
+		System.out.println("Source: " + conceptTransform.getSourceABoxLocationString());
+		System.out.println("Target: " + conceptTransform.getTargetFileLocation());
+		System.out.println("Source Type: " + conceptTransform.getSourceType());
+		System.out.println("Target Type: " + conceptTransform.getTargetType());
 		
 		String operation = conceptTransform.getOperationName();
+		
+		String mapFilePath = "";
+		
+		if (conceptTransform.getTempInputMapFilePath().isEmpty()) {
+			mapFilePath = mapPath;
+		} else {
+			mapFilePath = conceptTransform.getTempInputMapFilePath();
+		}
 		 
 		if (operation.equals(PanelETL.TransformationOnLiteral)) {
 			// System.out.println("Performing this operation only once.");
 			
-			Expression expressionHandler = new Expression(true);
-			String result = expressionHandler.transformOnLiteral(mapPath, 
+			Expression expressionHandler = new Expression();
+			
+			String result = expressionHandler.transformOnLiteral(mapFilePath, 
 					conceptTransform.getSourceABoxLocationString(), 
-					conceptTransform.getTargetFileLocation(), true);
+					conceptTransform.getTargetFileLocation(), conceptTransform.getTempOutputMapFilePath(), conceptTransform.getConcept());
 			
 			return result;
 		} else if (operation.equals(PanelETL.LEVEL_ENTRY_GENERATOR)) {
@@ -1174,7 +1328,7 @@ public class Extraction {
 			
 			LevelEntryGenerator entryGenerator = new LevelEntryGenerator();
 			String result = entryGenerator.generateLevelEntryFromRDF(
-					conceptTransform.getSourceABoxLocationString(), mapPath, 
+					conceptTransform.getSourceABoxLocationString(), mapFilePath, 
 					tboxPath, conceptTransform.getTargetFileLocation(), 
 					provFile);
 			
@@ -1185,7 +1339,7 @@ public class Extraction {
 			
 			FactEntryGeneration entryGenerator = new FactEntryGeneration();
 			String result = entryGenerator.generateFactEntryFromRDF(
-					conceptTransform.getSourceABoxLocationString(), mapPath, 
+					conceptTransform.getSourceABoxLocationString(), mapFilePath, 
 					tboxPath, conceptTransform.getTargetFileLocation(), 
 					provFile);
 			
@@ -1194,9 +1348,9 @@ public class Extraction {
 			String provFile = "C:\\Users\\Amrit\\Documents\\SETL\\AutoETL\\prov.ttl";
 			Methods.checkOrCreateFile(provFile);
 			
-			LevelEntryNew entryNew = new LevelEntryNew();
-			String result = entryNew.generateInstanceEntryFromRDF(conceptTransform.getSourceABoxLocationString(), mapPath, 
-					tboxPath, provFile, conceptTransform.getTargetFileLocation());
+			InstanceGenerator instanceGenerator = new InstanceGenerator();
+			String result = instanceGenerator.generateInstanceEntry(conceptTransform.getSourceABoxLocationString(), "Space ( )", mapFilePath, provFile, tboxPath, conceptTransform.getTargetFileLocation());
+			
 			
 			return result;
 		} else {
@@ -1204,69 +1358,63 @@ public class Extraction {
 		}
 	}
 
-	private void setTargetPaths(ConceptTransform conceptTransform,
-			LinkedHashMap<Integer, ConceptTransform> dependencyMap, int index) {
-		String targetPath = "";
-		if (conceptTransform.getTargetFileLocation().length() == 0) {
-			targetPath = "C:\\Users\\Amrit\\Documents\\SETL\\AutoETL\\" + conceptTransform.getOperationName() + "_" + Methods.getTime() + "_" + Methods.randomNumber() + ".ttl";
-			
-			conceptTransform.setTargetFileLocation(targetPath);
-			
-			if (dependencyMap.containsKey(index + 1)) {
-				ConceptTransform conceptTransform2 = dependencyMap.get(index + 1);
-				conceptTransform2.setSourceABoxLocationString(targetPath);
-				
-				dependencyMap.replace(index + 1, conceptTransform2);
-			}
-		}
-	}
-
-	private void extractOperation(String bracketString, Model model, String selectionString, LinkedHashMap<Integer,ConceptTransform> dependencyMap) {
+	private void extractOperation(String bracketString, Model model, String selectionString) {
 		// TODO Auto-generated method stub
-		LinkedHashMap<String, ConceptTransform> listMap = new LinkedHashMap();
-		
+//		LinkedHashMap<String, ConceptTransform> listMap = new LinkedHashMap();
 		String sparql = "PREFIX qb:	<http://purl.org/linked-data/cube#>\r\n"
 				+ "PREFIX	owl:	<http://www.w3.org/2002/07/owl#>\r\n"
 				+ "PREFIX	qb4o:	<http://purl.org/qb4olap/cubes#>\r\n"
 				+ "PREFIX	map:	<http://www.map.org/example#>\r\n"
-				+ "SELECT * WHERE { ?s a map:ConceptMapper.\r\n"
-				+ "?s map:operation ?op.\r\n"
-				+ "?s map:sourceABoxLocation ?loc.\r\n"
-				+ "?s map:sourceConcept ?sc.\r\n"
-				+ "?s map:targetConcept " + bracketString
-				+ "\r\n}";
+				+ "SELECT * WHERE { ?concept a map:ConceptMapper.\r\n"
+				+ "?concept map:operation ?operation.\r\n"
+				+ "?concept map:sourceABoxLocation ?sourceLocation.\r\n"
+				+ "?concept map:sourceConcept ?sourceType.\r\n"
+				+ "?concept map:targetConcept " + bracketString + "\r\n"
+				+ "OPTIONAL { ?concept map:targetABoxLocation ?targetLocation. }\r\n"
+				+ "}";
 		
 //		System.out.println(sparql);
 		
 		ResultSet resultSet = Methods.executeQuery(model, sparql);
-//		Methods.print(resultSet);
+//		WMethods.print(resultSet);
 		
 		while (resultSet.hasNext()) {
 			QuerySolution querySolution = (QuerySolution) resultSet.next();
-			String operation = querySolution.get("?op").toString();
-			String location = querySolution.get("?loc").toString();
-			String sourceConcept = querySolution.get("?sc").toString();
-			String targetConcept = selectionString;
+			String conceptName = querySolution.get("?concept").toString();
+			String operationString = querySolution.get("?operation").toString();
+			String location = querySolution.get("?sourceLocation").toString();
+			String sourceConcept = querySolution.get("?sourceType").toString();
 			
-			ConceptTransform conceptTransform = new ConceptTransform();
-			conceptTransform.setOperationName(operation);
-			conceptTransform.setSourceABoxLocationString(location);
-			conceptTransform.setSourceType(sourceConcept);
-			conceptTransform.setTargetType(targetConcept);
+			String targetLocation = "";
 			
-			bracketString = Methods.bracketString(sourceConcept);
-			if (sourceConcept != selectionString) {
-				extractOperation(bracketString, model, sourceConcept, dependencyMap);
+			if (querySolution.contains("?targetLocation")) {
+				targetLocation = querySolution.get("?targetLocation").toString();
 			}
 			
-			listMap.put(operation, conceptTransform);
+			String targetConcept = selectionString;
+			
+			String[] parts = operationString.split(",");
+			
+			for (String operationNameString : parts) {
+				ConceptTransform conceptTransform = new ConceptTransform();
+				conceptTransform.setConcept(conceptName);
+				conceptTransform.setOperationName(operationNameString.trim());
+				conceptTransform.setSourceABoxLocationString(location);
+				conceptTransform.setTargetFileLocation(targetLocation);
+				conceptTransform.setSourceType(sourceConcept);
+				conceptTransform.setTargetType(targetConcept);
+				
+				bracketString = Methods.bracketString(sourceConcept);
+				if (sourceConcept != selectionString) {
+					extractOperation(bracketString, model, sourceConcept);
+				}
+				
+//				listMap.put(operationNameString.trim(), conceptTransform);
+				conceptTransformList.add(conceptTransform);
+			}
 		}
 		
-		ArrayList<ConceptTransform> conceptList = sortMapWithPriority(listMap);
-		
-		for (int i = 0; i < conceptList.size(); i++) {
-			dependencyMap.put(dependencyMap.size(), conceptList.get(i));
-		}
+//		ArrayList<ConceptTransform> conceptList = sortMapWithPriority(listMap);
 	}
 
 	private ArrayList<ConceptTransform> sortMapWithPriority(LinkedHashMap<String, ConceptTransform> listMap) {
@@ -1275,6 +1423,7 @@ public class Extraction {
 		
 		checkAndAddOperation(listMap, list, PanelETL.INSTANCE_ENTRY_GENERATOR);
 		checkAndAddOperation(listMap, list, PanelETL.TransformationOnLiteral);
+		checkAndAddOperation(listMap, list, PanelETL.MULTIPLE_TRANFORM);
 		checkAndAddOperation(listMap, list, PanelETL.LEVEL_ENTRY_GENERATOR);
 		checkAndAddOperation(listMap, list, PanelETL.FACT_ENTRY_GENERATOR);
 		

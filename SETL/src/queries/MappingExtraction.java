@@ -34,6 +34,7 @@ import org.apache.jena.vocabulary.RDF;
 import controller.MappingDefinition;
 import helper.FileMethods;
 import helper.Methods;
+import helper.Variables;
 
 public class MappingExtraction {
 	private ArrayList<String> datasetList;
@@ -376,7 +377,7 @@ public class MappingExtraction {
 	}
 
 	public void addNewHead(String sourceType, String dataset, String source, String target, String relation,
-			String key, String operation, String keyType, String sourceComProperty, String targetComProperty, String filePath) {
+			String key, String operation, String keyType, String sourceComProperty, String targetComProperty, String filePath, String targetABoxPathString, String namespaceString, String customNamespaceString) {
 		// TODO Auto-generated method stub
 		dataset = assignIRI(dataset);
 		source = assignIRI(source);
@@ -416,6 +417,9 @@ public class MappingExtraction {
 		Property sourceCommonProperty = model.createProperty(assignIRI("map:sourceCommonProperty"));
 		Property targetCommonProperty = model.createProperty(assignIRI("map:targetCommonProperty"));
 		Property sourceABoxPath = model.createProperty(assignIRI("map:sourceABoxLocation"));
+		Property targetABoxPath = model.createProperty(assignIRI("map:targetABoxLocation"));
+		Property namespaceTypeProperty = model.createProperty(assignIRI("map:namespaceType"));
+		Property namespaceValueProperty = model.createProperty(assignIRI("map:namespaceValue"));
 		
 		newResource.addProperty(sourceTypeProperty, model.createLiteral(sourceType));
 		
@@ -424,9 +428,18 @@ public class MappingExtraction {
 		newResource.addProperty(targetProperty, model.createResource(target));
 		newResource.addProperty(relationProperty, model.createResource(relation));
 		newResource.addProperty(keyPropertyType, model.createResource(keyType));
+		newResource.addProperty(namespaceTypeProperty, model.createTypedLiteral(namespaceString));
+		
+		if (namespaceString.equals(Variables.CUSTOM)) {
+			newResource.addProperty(namespaceValueProperty, model.createTypedLiteral(customNamespaceString));
+		}
 		
 		if (new Methods().checkString(filePath)) {
 			newResource.addProperty(sourceABoxPath, model.createTypedLiteral(filePath));
+		}
+		
+		if (new Methods().checkString(filePath)) {
+			newResource.addProperty(targetABoxPath, model.createTypedLiteral(targetABoxPathString));
 		}
 		
 		Methods methods = new Methods();
@@ -476,7 +489,7 @@ public class MappingExtraction {
 		}
 	}
 
-	public void addNewRecord(String mapper, String target, String source, String sourceType) {
+	public void addNewRecord(String mapper, String target, String source, String sourceType, String namespaceString, String customNamespaceString) {
 		// TODO Auto-generated method stub
 		target = assignIRI(target);
 		mapper = assignIRI(mapper);
@@ -507,12 +520,20 @@ public class MappingExtraction {
 		Property sourceProperty = model.createProperty(assignIRI("map:sourceProperty"));
 		Property targetProperty = model.createProperty(assignIRI("map:targetProperty"));
 		Property sourceTypeProperty = model.createProperty(assignIRI("map:sourcePropertyType"));
+		Property namespaceTypeProperty = model.createProperty(assignIRI("map:namespaceType"));
+		Property namespaceValueProperty = model.createProperty(assignIRI("map:namespaceValue"));
 		
 		newResource.addProperty(sourceTypeProperty, model.createResource(sourceType));
 		
 		newResource.addProperty(mapProperty, model.createResource(mapper));
 		
 		newResource.addProperty(targetProperty, model.createResource(target));
+		
+		newResource.addProperty(namespaceTypeProperty, model.createTypedLiteral(namespaceString));
+		
+		if (namespaceString.equals(Variables.CUSTOM)) {
+			newResource.addProperty(namespaceValueProperty, model.createTypedLiteral(customNamespaceString));
+		}
 		
 		if (sourceType.contains("Expression")) {
 			source = source.replaceAll("\"", "");
