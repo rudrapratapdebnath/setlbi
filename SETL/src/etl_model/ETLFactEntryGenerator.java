@@ -547,6 +547,8 @@ public class ETLFactEntryGenerator implements ETLOperation {
 					String result = "";
 					result += Calendar.getInstance().getTime().toString() + "\n";
 					
+					Long startTimeLong = methods.getTime();
+					
 					if (getFileType().equals("CSV")) {
 						// LevelEntryGenerator entryGenerator = new LevelEntryGenerator();
 						// result += entryGenerator.generateFactEntryFromCSV(getSourceCSV(), getMappingFile(), getTargetTBoxFile(), getProvFile(), getTargetABoxFile(), getDelimiter());
@@ -565,6 +567,14 @@ public class ETLFactEntryGenerator implements ETLOperation {
 						FactEntryGeneration entryGeneration = new FactEntryGeneration();
 						result += entryGeneration.generateFactEntryFromRDF(getSourceABoxFile(), getMappingFile(), getTargetTBoxFile(), getTargetABoxFile(), getProvFile());
 					}
+					
+					Long endTimeLong = methods.getTime();
+					Long totalDifference = endTimeLong - startTimeLong;
+					
+					String timeStringOne = "Required Time for processing for " + getSourceCSV() + ": "
+							+ methods.getTimeInSeconds(totalDifference);
+					
+					System.out.println(timeStringOne);
 
 					result += "\n" + Calendar.getInstance().getTime();
 					

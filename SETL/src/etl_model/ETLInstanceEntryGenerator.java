@@ -27,6 +27,7 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.Timer;
 
+import core.InstanceGenerator;
 import core.LevelEntryNew;
 import helper.Methods;
 import model.ETLOperation;
@@ -36,6 +37,7 @@ import net.miginfocom.swing.MigLayout;
 public class ETLInstanceEntryGenerator implements ETLOperation {
 
 	private String mappingFile, sourceABoxFile, targetABoxFile, targetTBoxFile, provFile, sourceCSV, delimiter, fileType, targetType;
+	private String conceptString = "";
 	private String[] delimiters = new String[] { "Comma (,)", "Space ( )", "Semicolon (;)", "Tab (	)", "Pipe (|)" };
 
 	private Methods methods;
@@ -594,10 +596,17 @@ public class ETLInstanceEntryGenerator implements ETLOperation {
 					String result = "";
 					result += Calendar.getInstance().getTime().toString() + "\n";
 					
-					LevelEntryNew entryNew = new LevelEntryNew();
+					InstanceGenerator instanceGenerator = new InstanceGenerator();
 					
-					result += entryNew.generateInstanceEntry(getFileType(), getSourceABoxFile(), getDelimiter(),
-							getMappingFile(), getProvFile(), getTargetTBoxFile(), getTargetType(), getTargetABoxFile(), getSourceCSV());
+					if (getFileType() == null) {
+						setFileType("RDF");
+					}
+					
+					if (getFileType().contains("RDF")) {
+						result += instanceGenerator.generateInstanceEntry(getSourceABoxFile(), getDelimiter(), getMappingFile(), provFile, getTargetTBoxFile(), getTargetABoxFile());
+					} else {
+						result += instanceGenerator.generateInstanceEntry(getSourceCSV(), getDelimiter(), getMappingFile(), provFile, getTargetTBoxFile(), getTargetABoxFile());
+					}
 					
 					result += "\n" + Calendar.getInstance().getTime();
 					
@@ -709,5 +718,13 @@ public class ETLInstanceEntryGenerator implements ETLOperation {
 
 	public void setDelimiter(String delimiter) {
 		this.delimiter = delimiter;
+	}
+
+	public String getConceptString() {
+		return conceptString;
+	}
+
+	public void setConceptString(String conceptString) {
+		this.conceptString = conceptString;
 	}
 }
