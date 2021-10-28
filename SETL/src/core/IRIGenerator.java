@@ -32,9 +32,6 @@ public class IRIGenerator {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 				
-				System.out.println(keyAttributeType);
-				System.out.println(keyAttribute);
-				
 				Methods.print(valueMap);
 			}
 			
@@ -112,6 +109,6 @@ public class IRIGenerator {
 				return querySolution.get("o").toString();
 			}
 		}
-		return null;
+		return targetType;
 	}
 }

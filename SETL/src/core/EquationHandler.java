@@ -2,17 +2,87 @@ package core;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Map;
+
+import helper.Methods;
 
 public class EquationHandler {
+	LinkedHashMap<String, Object> valueHashMap;
+	private String oldExpressionString = "";
 	
-	public Object handleExpression(String expressionString, LinkedHashMap<String, Object> valueHashMap) {
-		// TODO Auto-generated method stub
+	public EquationHandler() {
+		// TODO Auto-generated constructor stub
+	}
+	
+	public EquationHandler(PrefixExtraction prefixExtraction, String expression, LinkedHashMap<String, Object> propertyValueMap) {
+		valueHashMap = new LinkedHashMap<>();
+		oldExpressionString = expression;
 		
-//		System.out.println("Expression: " + expressionString);
+		for (String propertyString : propertyValueMap.keySet()) {
+			Object propertyValue = propertyValueMap.get(propertyString);
+			
+//			System.out.println(propertyString + " - " + propertyValue);
+			
+			if (Methods.containsWWW(propertyString)) {
+				String prefixName = "temp" + prefixExtraction.prefixMap.size() + ":";
+				
+				if (propertyString.contains("#")) {
+		            String[] segments = propertyString.split("#");
+		            if (segments.length == 2) {
+		                String firstSegment = segments[0].trim() + "#";
+
+		                prefixExtraction.prefixMap.put(prefixName, firstSegment);
+		                
+//		                System.out.println("Prefix added 1");
+		            }
+		        } else {
+		            String[] segments = propertyString.split("/");
+		            String lastSegment = segments[segments.length - 1];
+
+		            String firstSegment = "";
+		            if (propertyString.endsWith(lastSegment)) {
+		                firstSegment = propertyString.replace(lastSegment, "");
+		            }
+
+		            prefixExtraction.prefixMap.put(prefixName, firstSegment);
+		            
+//		            System.out.println("Prefix added 2");
+		        }
+			}
+			
+			valueHashMap.put(prefixExtraction.assignPrefix(propertyString), propertyValue);
+		}
+		
+//		System.out.println("Old ex before replacing: " + oldExpressionString);
+		
+		for (String key : prefixExtraction.prefixMap.keySet()) {
+			String value = prefixExtraction.prefixMap.get(key);
+			
+			if (oldExpressionString.contains(value)) {
+				oldExpressionString = oldExpressionString.replace(value, key);
+			}
+		}
+		
+//		System.out.println("Old ex: " + oldExpressionString);
+	}
+
+	public Object handleExpression() {
+		// TODO Auto-generated method stub
+//		System.out.println("Expression: " + oldExpressionString);
 //		
 //		for (String key : valueHashMap.keySet()) {
-//			System.out.println("Key: " + key + " - " + valueHashMap.get(key));
+//			System.out.println("Key: " + key);
+//			System.out.println("Value: " + valueHashMap.get(key));
 //		}
+		
+		return handleExpression(oldExpressionString, valueHashMap);
+	}
+	
+	
+	
+	public Object handleExpression(String expressionString, LinkedHashMap<String, Object> propertyValueMap) {
+		// TODO Auto-generated method stub
+//		System.out.println("Ex: " + expressionString);
 		
 		boolean containsKey = checkKey(expressionString);
 		if (containsKey) {
@@ -79,6 +149,11 @@ public class EquationHandler {
 			} else {
 				double value = 0.0;
 				
+//				for (String key : valueHashMap.keySet()) {
+//					System.out.println("Key: " + key);
+//					System.out.println("Value: " + valueHashMap.get(key));
+//				}
+				
 				if (valueHashMap.containsKey(expressionString.trim())) {
 					
 					try {
@@ -96,17 +171,45 @@ public class EquationHandler {
 						return valueHashMap.get(expressionString).toString().trim();
 					}
 				} else {
-					try {
-						value = Double.parseDouble(expressionString.toString().trim());
-						// System.out.println(value);
-						if (value % 1 == 0) {
-							return Math.round(value);
-						} else {
-							return value;
+					boolean containsProperty = false;
+					String lastKeySegment = Methods.getLastSegmentOfIRI(expressionString.trim());
+					String keyProperty = "";
+					for (String key : valueHashMap.keySet()) {
+						if (key.equals(lastKeySegment)) {
+							keyProperty = key;
+							containsProperty = true;
+							break;
 						}
-					} catch (Exception e) {
-						// TODO: handle exception
-						return expressionString.trim();
+					}
+					
+					if (containsProperty) {
+						try {
+							value = Double.parseDouble(valueHashMap.get(keyProperty).toString().trim());
+							// System.out.println(value);
+							
+							if (value % 1 == 0) {
+								return Math.round(value);
+							} else {
+								return value;
+							}
+						} catch (Exception e) {
+							// TODO: handle exception
+							// System.out.println("it is a string " + expressionString.toString().trim());
+							return valueHashMap.get(keyProperty).toString().trim();
+						}
+					} else {
+						try {
+							value = Double.parseDouble(expressionString.toString().trim());
+							// System.out.println(value);
+							if (value % 1 == 0) {
+								return Math.round(value);
+							} else {
+								return value;
+							}
+						} catch (Exception e) {
+							// TODO: handle exception
+							return expressionString.trim();
+						}
 					}
 				}
 			}
@@ -437,15 +540,40 @@ public class EquationHandler {
 			double first;
 			double second;
 			double result = 0.0;
+			
+//			System.out.println(firstElementString);
+//			System.out.println(secondElementString);
+//			
+//			System.out.println("**** Value Map ********");
+//			
+//			for (String propertyString : valueHashMap.keySet()) {
+//				Object propertyValue = valueHashMap.get(propertyString);
+//				
+//				System.out.println(propertyString + " - " + propertyValue);
+//			}
 
 			if (valueHashMap.containsKey(firstElementString)) {
-				first = Double.parseDouble(valueHashMap.get(firstElementString).toString());
+				String valueString = valueHashMap.get(firstElementString).toString();
+				
+				if (valueString.contains("^^")) {
+					int index = valueString.indexOf("^");
+					valueString = valueString.substring(0, index);
+				}
+				
+				first = Double.parseDouble(valueString);
 			} else {
 				first = Double.parseDouble(firstElementString);
 			}
 
 			if (valueHashMap.containsKey(secondElementString)) {
-				second = Double.parseDouble(valueHashMap.get(secondElementString).toString());
+				String valueString = valueHashMap.get(secondElementString).toString();
+				
+				if (valueString.contains("^^")) {
+					int index = valueString.indexOf("^");
+					valueString = valueString.substring(0, index);
+				}
+				
+				second = Double.parseDouble(valueString);
 			} else {
 				second = Double.parseDouble(secondElementString);
 			}

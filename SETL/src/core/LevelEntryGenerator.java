@@ -39,44 +39,47 @@ public class LevelEntryGenerator {
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-		String basePath = "I:\\Data\\level\\rdf\\large\\";
-
-		String sourceFile = basePath + "recipient_wrapper.nt";
-		String mapFile = basePath + "map_current.ttl";
-		String targetTBox = basePath + "subsidy.ttl";
-		String targetABox = basePath + "recipient_entry.ttl";
-		String provGraph = basePath + "prov.ttl";
-
-		Methods.startProcessingTime();
-
-		LevelEntryGenerator levelEntryGenerator = new LevelEntryGenerator();
-		String resultString = levelEntryGenerator.generateLevelEntryFromRDF(sourceFile, mapFile, targetTBox, targetABox,
-				provGraph);
-
-		System.out.println(resultString);
-		Methods.endProcessingTime();
-
-//		String basePath = "I:\\Data\\level\\csv\\large\\";
-////
-////		String sourceFile = basePath + "city.csv";
-////		String mapFile = basePath + "map_current.ttl";
-////		String targetTBox = basePath + "subsidy.ttl";
-////		String targetABox = basePath + "city_entry.ttl";
-////		String delimiter = "Comma (,)";
-//		
-//		String sourceFile = basePath + "recipient.csv";
-//		String mapFile = basePath + "map_current.ttl";
-//		String targetTBox = basePath + "subsidy.ttl";
-//		String targetABox = basePath + "recipient_entry.ttl";
+//		String basePath = "C:\\Users\\Amrit\\Documents\\1\\thesis\\";
+//
+//		String sourceFile = basePath + "sources\\PopulationType.ttl";
+//		String mapFile = basePath + "map.ttl";
+//		String targetTBoxFile = basePath + "bd_tbox.ttl";
+//		String targetABoxFile = basePath + "files\\PopulationType.ttl";
 //		String delimiter = "Comma (,)";
+//		String provGraph = basePath + "prov.ttl";
+//		
+//		Methods.deleteAndCreateFile(provGraph);
 //
 //		Methods.startProcessingTime();
-//		// Methods.createNewFile(provGraph);
+//
 //		LevelEntryGenerator levelEntryGenerator = new LevelEntryGenerator();
-//		String resultString = levelEntryGenerator.generateLevelEntryFromCSV(sourceFile, mapFile, targetTBox, targetABox, delimiter);
+//		String resultString = levelEntryGenerator.generateLevelEntryFromRDF(sourceFile, mapFile, targetTBoxFile, targetABoxFile,
+//				provGraph);
 //
 //		System.out.println(resultString);
 //		Methods.endProcessingTime();
+
+		String basePath = "C:\\Users\\Amrit\\Documents\\1\\";
+//
+//		String sourceFile = basePath + "city.csv";
+//		String mapFile = basePath + "map_current.ttl";
+//		String targetTBox = basePath + "subsidy.ttl";
+//		String targetABox = basePath + "city_entry.ttl";
+//		String delimiter = "Comma (,)";
+		
+		String sourceFile = basePath + "Flowobject.csv";
+		String mapFile = basePath + "map_version_1633168377213.ttl";
+		String targetTBox = basePath + "Target.ttl";
+		String targetABox = basePath + "targetabox.ttl";
+		String delimiter = "Comma (,)";
+
+		Methods.startProcessingTime();
+		// Methods.createNewFile(provGraph);
+		LevelEntryGenerator levelEntryGenerator = new LevelEntryGenerator();
+		String resultString = levelEntryGenerator.generateLevelEntryFromCSV(sourceFile, mapFile, targetTBox, targetABox, delimiter);
+
+		System.out.println(resultString);
+		Methods.endProcessingTime();
 	}
 
 	public String generateLevelEntryFromCSV(String sourceFile, String mapFile, String targetTBoxFile,
@@ -110,18 +113,27 @@ public class LevelEntryGenerator {
 		prefixExtraction.extractPrefix(mapFile);
 
 		sourceFileName = Methods.getUppercaseWord(sourceFileName);
+		
 
 		String sparql = "PREFIX map: <http://www.map.org/example#>\r\n"
 				+ "PREFIX	qb:	<http://purl.org/linked-data/cube#>\r\n"
 				+ "PREFIX   qb4o:   <http://purl.org/qb4olap/cubes#>\r\n"
-				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n" + "SELECT * WHERE { \r\n"
-				+ "?concept a map:ConceptMapper. \r\n" + "?concept map:sourceConcept ?stype. \r\n"
-				+ "?concept map:targetConcept ?ttype. \r\n" + "?concept map:iriValueType ?iritype. \r\n"
-				+ "?concept map:iriValue ?irivalue. \r\n" + "?ttype a qb4o:LevelProperty. \r\n"
-				+ "OPTIONAL {?ttype rdfs:range ?range.}" + "?mapper a map:PropertyMapper. \r\n"
-				+ "?mapper map:ConceptMapper ?concept. \r\n" + "?mapper map:sourceProperty ?sprop. \r\n"
-				+ "?mapper map:targetProperty ?tprop. \r\n" + "FILTER regex(str(?stype), '" + sourceFileName
-				+ "'). \r\n" + "}";
+				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n"
+				+ "SELECT * WHERE { \r\n"
+				+ "?concept a map:ConceptMapper. \r\n"
+				+ "?concept map:sourceConcept ?stype. \r\n"
+				+ "?concept map:targetConcept ?ttype. \r\n"
+				+ "?concept map:iriValueType ?iritype. \r\n"
+				+ "?concept map:iriValue ?irivalue. \r\n"
+				+ "?ttype a qb4o:LevelProperty. \r\n"
+				+ "OPTIONAL {?ttype rdfs:range ?range.}"
+				+ "?mapper a map:PropertyMapper. \r\n"
+				+ "?mapper map:ConceptMapper ?concept. \r\n"
+				+ "?mapper map:sourceProperty ?sprop. \r\n"
+				+ "?mapper map:targetProperty ?tprop. \r\n"
+				+ "FILTER regex(str(?stype), '" + sourceFileName
+				+ "')."
+				+ " \r\n" + "}";
 
 		ResultSet resultSet = Methods.executeQuery(completeModel, sparql);
 		completeModel.close();
@@ -133,6 +145,9 @@ public class LevelEntryGenerator {
 		while (resultSet.hasNext()) {
 			QuerySolution querySolution = resultSet.next();
 			String sourceType = querySolution.get("stype").toString();
+			
+//			System.out.println("Source file name: " + sourceFileName);
+//			System.out.println("Source type: " + Methods.getLastSegmentOfIRI(sourceType));
 
 			if (Methods.getLastSegmentOfIRI(sourceType).equals(sourceFileName)) {
 				String concept = querySolution.get("concept").toString();
@@ -164,6 +179,8 @@ public class LevelEntryGenerator {
 					conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
 					conceptMap.put(concept, conceptTransform);
 				}
+			} else {
+				System.out.println("Source file and source concept name mismatch.");
 			}
 		}
 
@@ -260,16 +277,26 @@ public class LevelEntryGenerator {
 							
 							String expressionString = conceptTransform.getIriValue();
 							
-							EquationHandler equationHandler = new EquationHandler();
-							Object valueObject = equationHandler.handleExpression(expressionString,
-									valueMap, true);
+//							EquationHandler equationHandler = new EquationHandler();
+//							Object valueObject = equationHandler.handleExpression(expressionString,
+//									valueMap, true);
+//							
+//							iriValue = valueObject.toString();
+							
+							PrefixExtraction prefixExtraction = new PrefixExtraction();
+							EquationHandler equationHandler = new EquationHandler(prefixExtraction, expressionString, valueMap);
+							Object valueObject = equationHandler.handleExpression();
+							
+//							System.out.println(valueObject);
 							
 							iriValue = valueObject.toString();
 							
 //							System.out.println("Ex IRIValue: " + valueObject);
 						}
 
+//						System.out.println("Iri value: " + iriValue);
 						iriValue = Methods.formatURL(iriValue);
+//						System.out.println("Iri value 2: " + iriValue);
 						// iriValue = iriValue.substring(0, 1).toUpperCase() + iriValue.substring(1);
 
 //						System.out.println(iriValue);
@@ -280,10 +307,10 @@ public class LevelEntryGenerator {
 							iriString = Methods.createSlashTypeString(conceptTransform.getTargetType()) + "#"
 									+ iriValue;
 						} else {
-							iriString = conceptTransform.getRangeString() + "#" + iriValue;
+							iriString = Methods.createSlashTypeString(conceptTransform.getRangeString()) + "#" + iriValue;
 						}
 
-//						System.out.println(iriString);
+						System.out.println(iriString);
 
 						UrlValidator urlValidator = new UrlValidator();
 						if (!urlValidator.isValid(iriString)) {
@@ -435,6 +462,8 @@ public class LevelEntryGenerator {
 		completeModel.add(targetTBoxModel);
 		
 		prefixExtraction.extractPrefix(mapFile);
+		
+		String sourceName = Methods.getFileName(sourceFile);
 
 		String sparql = "PREFIX map: <http://www.map.org/example#>\r\n"
 				+ "PREFIX	qb:	<http://purl.org/linked-data/cube#>\r\n"
@@ -471,20 +500,22 @@ public class LevelEntryGenerator {
 			String sourceProperty = querySolution.get("sprop").toString();
 			String targetProperty = querySolution.get("tprop").toString();
 
-			if (conceptMap.containsKey(concept)) {
-				ConceptTransform conceptTransform = conceptMap.get(concept);
-				conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
-				conceptMap.replace(concept, conceptTransform);
-			} else {
-				ConceptTransform conceptTransform = new ConceptTransform();
-				conceptTransform.setConcept(concept);
-				conceptTransform.setSourceType(sourceType);
-				conceptTransform.setTargetType(targetType);
-				conceptTransform.setIriValue(iriValue);
-				conceptTransform.setIriValueType(iriType);
-				conceptTransform.setRangeString(rangeString);
-				conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
-				conceptMap.put(concept, conceptTransform);
+			if (concept.contains(sourceName)) {
+				if (conceptMap.containsKey(concept)) {
+					ConceptTransform conceptTransform = conceptMap.get(concept);
+					conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
+					conceptMap.replace(concept, conceptTransform);
+				} else {
+					ConceptTransform conceptTransform = new ConceptTransform();
+					conceptTransform.setConcept(concept);
+					conceptTransform.setSourceType(sourceType);
+					conceptTransform.setTargetType(targetType);
+					conceptTransform.setIriValue(iriValue);
+					conceptTransform.setIriValueType(iriType);
+					conceptTransform.setRangeString(rangeString);
+					conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
+					conceptMap.put(concept, conceptTransform);
+				}
 			}
 		}
 		
@@ -560,17 +591,28 @@ public class LevelEntryGenerator {
 		
 		prefixExtraction.extractPrefix(mapFile);
 		prefixExtraction.extractPrefix(sourceFile);
+		
+		String sourceName = Methods.getFileName(sourceFile);
+		
+//		System.out.println("Source: " + sourceName);
 
 		String sparql = "PREFIX map: <http://www.map.org/example#>\r\n"
 				+ "PREFIX	qb:	<http://purl.org/linked-data/cube#>\r\n"
 				+ "PREFIX   qb4o:   <http://purl.org/qb4olap/cubes#>\r\n"
-				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n" + "SELECT * WHERE { \r\n"
-				+ "?concept a map:ConceptMapper. \r\n" + "?concept map:sourceConcept ?stype. \r\n"
-				+ "?concept map:targetConcept ?ttype. \r\n" + "?concept map:iriValueType ?iritype. \r\n"
-				+ "?concept map:iriValue ?irivalue. \r\n" + "?ttype a qb4o:LevelProperty. \r\n"
-				+ "OPTIONAL {?ttype rdfs:range ?range.}" + "?mapper a map:PropertyMapper. \r\n"
-				+ "?mapper map:ConceptMapper ?concept. \r\n" + "?mapper map:sourceProperty ?sprop. \r\n"
-				+ "?mapper map:targetProperty ?tprop. \r\n" + "}";
+				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n" 
+				+ "SELECT * WHERE { \r\n"
+				+ "?concept a map:ConceptMapper. \r\n"
+				+ "?concept map:sourceConcept ?stype. \r\n"
+				+ "?concept map:targetConcept ?ttype. \r\n"
+				+ "?concept map:iriValueType ?iritype. \r\n"
+				+ "?concept map:iriValue ?irivalue. \r\n"
+				+ "?ttype a qb4o:LevelProperty. \r\n"
+				+ "OPTIONAL {?ttype rdfs:range ?range.}"
+				+ "?mapper a map:PropertyMapper. \r\n"
+				+ "?mapper map:ConceptMapper ?concept. \r\n"
+				+ "?mapper map:sourceProperty ?sprop. \r\n"
+				+ "?mapper map:targetProperty ?tprop. \r\n"
+				+ "}";
 
 		ResultSet resultSet = Methods.executeQuery(completeModel, sparql);
 //		Methods.print(resultSet);
@@ -595,23 +637,27 @@ public class LevelEntryGenerator {
 //			String mapper = querySolution.get("mapper").toString();
 			String sourceProperty = querySolution.get("sprop").toString();
 			String targetProperty = querySolution.get("tprop").toString();
-
-			if (conceptMap.containsKey(concept)) {
-				ConceptTransform conceptTransform = conceptMap.get(concept);
-				conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
-				conceptMap.replace(concept, conceptTransform);
-			} else {
-				ConceptTransform conceptTransform = new ConceptTransform();
-				conceptTransform.setConcept(concept);
-				conceptTransform.setSourceType(sourceType);
-				conceptTransform.setTargetType(targetType);
-				conceptTransform.setIriValue(iriValue);
-				conceptTransform.setIriValueType(iriType);
-				conceptTransform.setRangeString(rangeString);
-				conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
-				conceptMap.put(concept, conceptTransform);
+			
+			if (concept.contains(sourceName)) {
+				if (conceptMap.containsKey(concept)) {
+					ConceptTransform conceptTransform = conceptMap.get(concept);
+					conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
+					conceptMap.replace(concept, conceptTransform);
+				} else {
+					ConceptTransform conceptTransform = new ConceptTransform();
+					conceptTransform.setConcept(concept);
+					conceptTransform.setSourceType(sourceType);
+					conceptTransform.setTargetType(targetType);
+					conceptTransform.setIriValue(iriValue);
+					conceptTransform.setIriValueType(iriType);
+					conceptTransform.setRangeString(rangeString);
+					conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
+					conceptMap.put(concept, conceptTransform);
+				}
 			}
 		}
+		
+//		System.out.println("Size: " + conceptMap.size());
 
 		Model model = ModelFactory.createDefaultModel();
 
@@ -690,9 +736,13 @@ public class LevelEntryGenerator {
 					}
 					stmtIterator.close();
 					
-					EquationHandler equationHandler = new EquationHandler();
-					Object valueObject = equationHandler.handleExpression(expressionString,
-							valueMap);
+//					EquationHandler equationHandler = new EquationHandler();
+//					Object valueObject = equationHandler.handleExpression(expressionString,
+//							valueMap);
+					
+					PrefixExtraction prefixExtraction = new PrefixExtraction();
+					EquationHandler equationHandler = new EquationHandler(prefixExtraction, expressionString, valueMap);
+					Object valueObject = equationHandler.handleExpression();
 					
 					iriValue = valueObject.toString();
 				}
@@ -703,9 +753,10 @@ public class LevelEntryGenerator {
 				String iriString = "";
 
 				if (conceptTransform.getRangeString().equals("")) {
-					iriString = Methods.createSlashTypeString(conceptTransform.getTargetType()) + "#" + iriValue;
+					iriString = Methods.createSlashTypeString(conceptTransform.getTargetType()) + "#"
+							+ iriValue;
 				} else {
-					iriString = conceptTransform.getRangeString() + "#" + iriValue;
+					iriString = Methods.createSlashTypeString(conceptTransform.getRangeString()) + "#" + iriValue;
 				}
 
 //					System.out.println(iriString);

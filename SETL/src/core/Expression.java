@@ -28,6 +28,7 @@ import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.ResourceFactory;
+import org.apache.jena.vocabulary.RDF;
 
 import helper.Methods;
 import helper.Variables;
@@ -52,8 +53,11 @@ public class Expression {
 		String targetFileString = basePath + "subsidy_transform.ttl";
 
 		Methods.startProcessingTime();
-		Expression expression = new Expression(true);
-		String result  = expression.transformOnLiteral(mapFileString, sourceFileString, targetFileString, true);
+		Expression expression = new Expression();
+		String result  = expression.transformOnLiteral("C:\\Users\\Amrit\\Documents\\1\\JoinTransformAUTOETL\\map_only_to_check_extraction.ttl",
+				"C:\\Users\\Amrit\\Documents\\1\\JoinTransformAUTOETL\\temp\\determiningFlow_abox.ttl",
+				"C:\\Users\\Amrit\\Documents\\SETL\\TransformationOnLiteral_1609082417782_551.ttl", "map_TransformationOnLiteral.ttl",
+				"http://www.map.org/example#con_map_2");
 		System.out.println(result);
 		Methods.endProcessingTime();
 	}
@@ -65,196 +69,197 @@ public class Expression {
 		sourceModel = ModelFactory.createDefaultModel();
 		mapModel = ModelFactory.createDefaultModel();
 		methods = new Methods();
+		prefixExtraction = new PrefixExtraction();
 	}
 
-	public String transformOnliteral(String mapFile, String sourceFile, String targetABoxFile) {
-		prefixMap = methods.getAllPredefinedPrefixes();
-		extractAllPrefixes(mapFile);
-		extractAllPrefixes(sourceFile);
-		
-		Model mapModel = methods.readModelFromPath(mapFile);
-		Model sourceModel = methods.readModelFromPath(sourceFile);
-		
-		String sparql = "\nPREFIX map: <http://www.map.org/example#>\n"
-				+ "SELECT * WHERE {"
-				+ "?concept a map:ConceptMapper."
-				+ "?concept map:targetConcept ?targetType."
-				+ "?concept map:sourceConcept ?sourcetype."
-				+ "?mapper a map:PropertyMapper."
-				+ "?mapper map:ConceptMapper ?concept."
-				+ "?mapper map:sourceProperty ?source."
-				+ "?mapper map:sourcePropertyType map:SourceExpression."
-				+ "?mapper map:targetProperty ?target." + "}";
-
-		ResultSet resultSet = Methods.executeQuery(mapModel, sparql);
-		
-		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<String, ConceptTransform>();
-		LinkedHashMap<String, Integer> propertyMap = new LinkedHashMap<String, Integer>();
-		
-		while (resultSet.hasNext()) {
-			QuerySolution querySolution = (QuerySolution) resultSet.next();
-			String conceptString = querySolution.get("concept").toString();
-			String targetTypeString = querySolution.get("targetType").toString();
-			String sourceTypeString = querySolution.get("sourcetype").toString();
-
-			String mapperString = querySolution.get("mapper").toString();
-			String targetPropertyString = querySolution.get("target").toString();
-			String sourcePropertyString = querySolution.get("source").toString();
-			String sourcePropertyTypeString = "map:SourceExpression";
-
-			MapperTransform mapperTransform = new MapperTransform(sourcePropertyString, sourcePropertyTypeString,
-					targetPropertyString);
-
-			if (conceptMap.containsKey(conceptString)) {
-				ConceptTransform conceptTransform = conceptMap.get(conceptString);
-				conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
-				conceptMap.replace(conceptString, conceptTransform);
-			} else {
-				ConceptTransform conceptTransform = new ConceptTransform();
-				conceptTransform.setConcept(conceptString);
-				conceptTransform.setTargetType(targetTypeString);
-				conceptTransform.setSourceType(sourceTypeString);
-				conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
-				conceptMap.put(conceptString, conceptTransform);
-			}
-		}
-		
-		for (String conceptString : conceptMap.keySet()) {
-			ConceptTransform conceptTransform = conceptMap.get(conceptString);
-			String typeString = Methods.bracketString(conceptTransform.getSourceType());
-			
-
-			String sparqlString = "SELECT * WHERE {" + "?s a " + typeString + "." + "?s ?p ?o.}";
-
-			ResultSet set = Methods.executeQuery(sourceModel, sparqlString);
-			
-			String currentSubjectString = "";
-			LinkedHashMap<String, Object> valueMap = new LinkedHashMap<String, Object>();
-			
-			while (set.hasNext()) {
-				
-				QuerySolution querySolution = (QuerySolution) set.next();
-				String resourceString = querySolution.get("s").toString();
-				String predicateString = querySolution.get("p").toString();
-				RDFNode object = querySolution.get("o");
-				
-				// String prefixPredicate = assignPrefix(predicateString);
-				// System.out.println("Prefix predicate: " + prefixPredicate + " Subject: " + resourceString);
-				
-				if (currentSubjectString.equals(resourceString)) {
-					valueMap.put(assignPrefix(predicateString), methods.getRDFNodeValue(object));
-					
-					// System.out.println("Added");
-				} else {
-					if (currentSubjectString.equals("")) {
-						currentSubjectString = resourceString;
-						valueMap.put(assignPrefix(predicateString), methods.getRDFNodeValue(object));
-						
-					} else {
-
-						Resource resource = sourceModel.createResource(currentSubjectString);
-						
-						for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
-							MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
-									.get(mapperString);
-							
-							
-//							int index = 0;
-//							if (propertyMap.containsKey(mapperTransform.getSourceProperty())) {
-//								index = propertyMap.get(mapperTransform.getSourceProperty());
-//							} else {
-//								index = propertyMap.size() + 1;
-//								propertyMap.put(mapperTransform.getSourceProperty(), index);
-//							}
-							
-							
-							Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
-							
-							if (!resource.hasProperty(property)) {
-								String iri = mapperTransform.getTargetProperty();
-								if (iri.contains("#")) {
-									String[] segments = iri.split("#");
-									if (segments.length == 2) {
-										String firstSegment = segments[0].trim() + "/";
-										String secondSegment = segments[1];
-										
-										property = sourceModel.createProperty(firstSegment + secondSegment);
-									}
-								} else {
-									String[] segments = iri.split("/");
-									String lastSegment = segments[segments.length - 1];
-
-									String firstSegment = "";
-									if (iri.endsWith(lastSegment)) {
-										firstSegment = iri.replace(lastSegment, "");
-									}
-									
-									firstSegment = firstSegment.substring(0, firstSegment.length() - 1) + "#";
-
-									property = sourceModel.createProperty(firstSegment + lastSegment);
-								}
-							}
-							
-							resource.removeAll(property);
-							
-							propertyMap.put(mapperString, (propertyMap.size() + 1));
-							
-							// System.out.println("Current: " + currentSubjectString);
-							
-							EquationHandler equationHandler = new EquationHandler();
-							Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
-									valueMap);
-							
-							Literal literal = sourceModel.createTypedLiteral(valueObject);
-							resource.addProperty(property, literal);
-						}
-						
-						currentSubjectString = resourceString;
-						valueMap = new LinkedHashMap<String, Object>();
-						valueMap.put(assignPrefix(predicateString), methods.getRDFNodeValue(object));
-					}
-				}
-			}
-			
-			if (!currentSubjectString.equals("")) {
-				// System.out.println("Current subject: " + currentSubjectString);
-				Resource resource = sourceModel.createResource(currentSubjectString);
-				
-				for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
-					MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
-							.get(mapperString);
-					
-					
-//					int index = 0;
-//					if (propertyMap.containsKey(mapperTransform.getSourceProperty())) {
-//						index = propertyMap.get(mapperTransform.getSourceProperty());
+//	public String transformOnliteral(String mapFile, String sourceFile, String targetABoxFile) {
+//		prefixMap = methods.getAllPredefinedPrefixes();
+//		extractAllPrefixes(mapFile);
+//		extractAllPrefixes(sourceFile);
+//		
+//		Model mapModel = methods.readModelFromPath(mapFile);
+//		Model sourceModel = methods.readModelFromPath(sourceFile);
+//		
+//		String sparql = "\nPREFIX map: <http://www.map.org/example#>\n"
+//				+ "SELECT * WHERE {"
+//				+ "?concept a map:ConceptMapper."
+//				+ "?concept map:targetConcept ?targetType."
+//				+ "?concept map:sourceConcept ?sourcetype."
+//				+ "?mapper a map:PropertyMapper."
+//				+ "?mapper map:ConceptMapper ?concept."
+//				+ "?mapper map:sourceProperty ?source."
+//				+ "?mapper map:sourcePropertyType map:SourceExpression."
+//				+ "?mapper map:targetProperty ?target." + "}";
+//
+//		ResultSet resultSet = Methods.executeQuery(mapModel, sparql);
+//		
+//		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<String, ConceptTransform>();
+//		LinkedHashMap<String, Integer> propertyMap = new LinkedHashMap<String, Integer>();
+//		
+//		while (resultSet.hasNext()) {
+//			QuerySolution querySolution = (QuerySolution) resultSet.next();
+//			String conceptString = querySolution.get("concept").toString();
+//			String targetTypeString = querySolution.get("targetType").toString();
+//			String sourceTypeString = querySolution.get("sourcetype").toString();
+//
+//			String mapperString = querySolution.get("mapper").toString();
+//			String targetPropertyString = querySolution.get("target").toString();
+//			String sourcePropertyString = querySolution.get("source").toString();
+//			String sourcePropertyTypeString = "map:SourceExpression";
+//
+//			MapperTransform mapperTransform = new MapperTransform(sourcePropertyString, sourcePropertyTypeString,
+//					targetPropertyString);
+//
+//			if (conceptMap.containsKey(conceptString)) {
+//				ConceptTransform conceptTransform = conceptMap.get(conceptString);
+//				conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
+//				conceptMap.replace(conceptString, conceptTransform);
+//			} else {
+//				ConceptTransform conceptTransform = new ConceptTransform();
+//				conceptTransform.setConcept(conceptString);
+//				conceptTransform.setTargetType(targetTypeString);
+//				conceptTransform.setSourceType(sourceTypeString);
+//				conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
+//				conceptMap.put(conceptString, conceptTransform);
+//			}
+//		}
+//		
+//		for (String conceptString : conceptMap.keySet()) {
+//			ConceptTransform conceptTransform = conceptMap.get(conceptString);
+//			String typeString = Methods.bracketString(conceptTransform.getSourceType());
+//			
+//
+//			String sparqlString = "SELECT * WHERE {" + "?s a " + typeString + "." + "?s ?p ?o.}";
+//
+//			ResultSet set = Methods.executeQuery(sourceModel, sparqlString);
+//			
+//			String currentSubjectString = "";
+//			LinkedHashMap<String, Object> valueMap = new LinkedHashMap<String, Object>();
+//			
+//			while (set.hasNext()) {
+//				
+//				QuerySolution querySolution = (QuerySolution) set.next();
+//				String resourceString = querySolution.get("s").toString();
+//				String predicateString = querySolution.get("p").toString();
+//				RDFNode object = querySolution.get("o");
+//				
+//				// String prefixPredicate = assignPrefix(predicateString);
+//				// System.out.println("Prefix predicate: " + prefixPredicate + " Subject: " + resourceString);
+//				
+//				if (currentSubjectString.equals(resourceString)) {
+//					valueMap.put(assignPrefix(predicateString), methods.getRDFNodeValue(object));
+//					
+//					// System.out.println("Added");
+//				} else {
+//					if (currentSubjectString.equals("")) {
+//						currentSubjectString = resourceString;
+//						valueMap.put(assignPrefix(predicateString), methods.getRDFNodeValue(object));
+//						
 //					} else {
-//						index = propertyMap.size() + 1;
-//						propertyMap.put(mapperTransform.getSourceProperty(), index);
+//
+//						Resource resource = sourceModel.createResource(currentSubjectString);
+//						
+//						for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
+//							MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
+//									.get(mapperString);
+//							
+//							
+////							int index = 0;
+////							if (propertyMap.containsKey(mapperTransform.getSourceProperty())) {
+////								index = propertyMap.get(mapperTransform.getSourceProperty());
+////							} else {
+////								index = propertyMap.size() + 1;
+////								propertyMap.put(mapperTransform.getSourceProperty(), index);
+////							}
+//							
+//							
+//							Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
+//							
+//							if (!resource.hasProperty(property)) {
+//								String iri = mapperTransform.getTargetProperty();
+//								if (iri.contains("#")) {
+//									String[] segments = iri.split("#");
+//									if (segments.length == 2) {
+//										String firstSegment = segments[0].trim() + "/";
+//										String secondSegment = segments[1];
+//										
+//										property = sourceModel.createProperty(firstSegment + secondSegment);
+//									}
+//								} else {
+//									String[] segments = iri.split("/");
+//									String lastSegment = segments[segments.length - 1];
+//
+//									String firstSegment = "";
+//									if (iri.endsWith(lastSegment)) {
+//										firstSegment = iri.replace(lastSegment, "");
+//									}
+//									
+//									firstSegment = firstSegment.substring(0, firstSegment.length() - 1) + "#";
+//
+//									property = sourceModel.createProperty(firstSegment + lastSegment);
+//								}
+//							}
+//							
+//							resource.removeAll(property);
+//							
+//							propertyMap.put(mapperString, (propertyMap.size() + 1));
+//							
+//							// System.out.println("Current: " + currentSubjectString);
+//							
+//							EquationHandler equationHandler = new EquationHandler();
+//							Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
+//									valueMap);
+//							
+//							Literal literal = sourceModel.createTypedLiteral(valueObject);
+//							resource.addProperty(property, literal);
+//						}
+//						
+//						currentSubjectString = resourceString;
+//						valueMap = new LinkedHashMap<String, Object>();
+//						valueMap.put(assignPrefix(predicateString), methods.getRDFNodeValue(object));
 //					}
-					
-					
-					Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
-					resource.removeAll(property);
-					propertyMap.put(mapperString, (propertyMap.size() + 1));
-					
-					// methods.print("Size: " + valueMap.size());
-					// methods.print(valueMap);
-					
-					EquationHandler equationHandler = new EquationHandler();
-					Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
-							valueMap);
-					
-					Literal literal = sourceModel.createTypedLiteral(valueObject);
-					resource.addProperty(property, literal);
-				}
-			}
-		}
-		
-		methods.saveModel(sourceModel, targetABoxFile);
-		
-		return "Successful.\nFile Saved: " + targetABoxFile;
-	}
+//				}
+//			}
+//			
+//			if (!currentSubjectString.equals("")) {
+//				// System.out.println("Current subject: " + currentSubjectString);
+//				Resource resource = sourceModel.createResource(currentSubjectString);
+//				
+//				for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
+//					MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
+//							.get(mapperString);
+//					
+//					
+////					int index = 0;
+////					if (propertyMap.containsKey(mapperTransform.getSourceProperty())) {
+////						index = propertyMap.get(mapperTransform.getSourceProperty());
+////					} else {
+////						index = propertyMap.size() + 1;
+////						propertyMap.put(mapperTransform.getSourceProperty(), index);
+////					}
+//					
+//					
+//					Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
+//					resource.removeAll(property);
+//					propertyMap.put(mapperString, (propertyMap.size() + 1));
+//					
+//					// methods.print("Size: " + valueMap.size());
+//					// methods.print(valueMap);
+//					
+//					EquationHandler equationHandler = new EquationHandler();
+//					Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
+//							valueMap);
+//					
+//					Literal literal = sourceModel.createTypedLiteral(valueObject);
+//					resource.addProperty(property, literal);
+//				}
+//			}
+//		}
+//		
+//		methods.saveModel(sourceModel, targetABoxFile);
+//		
+//		return "Successful.\nFile Saved: " + targetABoxFile;
+//	}
 
 	public boolean handleExpression(String mapFile, String sourceFile, String resultFile) {
 		try {
@@ -867,26 +872,24 @@ public class Expression {
 	public void setMapModel(Model mapModel) {
 		this.mapModel = mapModel;
 	}
-	
-	
 
-
-	public Expression(boolean isNew) {
-		// TODO Auto-generated constructor stub
-		prefixExtraction = new PrefixExtraction();
-	}
-
-	public String transformOnLiteral(String mapFileString, String sourceFileString, String targetFileString, boolean isNew) {
+	public String transformOnLiteral(String mapFileString, String sourceFileString, String targetFileString, String outputMappingFile) {
 		// TODO Auto-generated method stub
+		
+//		System.out.println(mapFileString);
+//		System.out.println(sourceFileString);
+//		System.out.println(targetFileString);
+//		System.out.println(outputMappingFile);
+		
 		if (Methods.isJenaAccessible(sourceFileString)) {
-			return transformOnLiteralFromTinyFile(mapFileString, sourceFileString, targetFileString, true);
+			return transformOnLiteralFromTinyFile(mapFileString, sourceFileString, targetFileString, outputMappingFile);
 		} else {
 //			System.out.println("Large");
-			return transformOnLiteralFromLargeFile(mapFileString, sourceFileString, targetFileString, true);
+			return transformOnLiteralFromLargeFile(mapFileString, sourceFileString, targetFileString, outputMappingFile);
 		}
 	}
 
-	public String transformOnLiteralFromTinyFile(String mapFile, String sourceFile, String targetABoxFile, boolean isNew) {
+	public String transformOnLiteralFromTinyFile(String mapFile, String sourceFile, String targetABoxFile, String outputMappingFile) {
 		prefixExtraction.extractPrefix(mapFile);
 		prefixExtraction.extractPrefix(sourceFile);
 
@@ -904,12 +907,21 @@ public class Expression {
 		if (sourceModel == null) {
 			return "Check Source File";
 		}
+		
+		Model tempMapModel = ModelFactory.createDefaultModel();
+		tempMapModel.add(mapModel);
 
-		String sparql = "\nPREFIX map: <http://www.map.org/example#>\n" + "SELECT * WHERE {"
-				+ "?concept a map:ConceptMapper." + "?concept map:targetConcept ?targetType."
-				+ "?concept map:sourceConcept ?sourcetype." + "?mapper a map:PropertyMapper."
-				+ "?mapper map:ConceptMapper ?concept." + "?mapper map:sourceProperty ?source."
-				+ "?mapper map:sourcePropertyType map:SourceExpression." + "?mapper map:targetProperty ?target." + "}";
+		String sparql = "\nPREFIX map: <http://www.map.org/example#>\n"
+						+ "SELECT * WHERE {"
+						+ "?concept a map:ConceptMapper."
+						+ "?concept map:targetConcept ?targetType."
+						+ "?concept map:sourceConcept ?sourcetype."
+						+ "?mapper a map:PropertyMapper."
+						+ "?mapper map:ConceptMapper ?concept."
+						+ "?mapper map:sourceProperty ?source."
+						+ "?mapper map:sourcePropertyType map:SourceExpression."
+						+ "?mapper map:targetProperty ?target."
+						+ "}";
 
 		ResultSet resultSet = Methods.executeQuery(mapModel, sparql);
 //		Methods.print(resultSet);
@@ -930,6 +942,7 @@ public class Expression {
 
 			MapperTransform mapperTransform = new MapperTransform(sourcePropertyString, sourcePropertyTypeString,
 					targetPropertyString);
+			mapperTransform.setMapperName(mapperString);
 
 			if (conceptMap.containsKey(conceptString)) {
 				ConceptTransform conceptTransform = conceptMap.get(conceptString);
@@ -979,8 +992,11 @@ public class Expression {
 						valueMap.put(prefixExtraction.assignPrefix(predicateString), Methods.getRDFNodeValue(object));
 
 					} else {
-
 						Resource resource = sourceModel.createResource(currentSubjectString);
+						Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+						Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+						resource.removeAll(typeProperty);
+						resource.addProperty(typeProperty, targetConceptResource);
 
 						for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
 							MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
@@ -996,45 +1012,28 @@ public class Expression {
 
 							Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
 
-							if (!resource.hasProperty(property)) {
-								String iri = mapperTransform.getTargetProperty();
-								if (iri.contains("#")) {
-									String[] segments = iri.split("#");
-									if (segments.length == 2) {
-										String firstSegment = segments[0].trim() + "/";
-										String secondSegment = segments[1];
-
-										property = sourceModel.createProperty(firstSegment + secondSegment);
-									}
-								} else {
-									String[] segments = iri.split("/");
-									String lastSegment = segments[segments.length - 1];
-
-									String firstSegment = "";
-									if (iri.endsWith(lastSegment)) {
-										firstSegment = iri.replace(lastSegment, "");
-									}
-
-									firstSegment = firstSegment.substring(0, firstSegment.length() - 1) + "#";
-
-									property = sourceModel.createProperty(firstSegment + lastSegment);
+							removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+							for (String key : valueMap.keySet()) {
+								String removeString = prefixExtraction.assignIRI(key);
+								if (mapperTransform.getSourceProperty().contains(removeString)) {
+									removeProperty(resource, removeString, sourceModel);
+									break;
 								}
 							}
-
-							resource.removeAll(property);
-
 							propertyMap.put(mapperString, (propertyMap.size() + 1));
 
 							// System.out.println("Current: " + currentSubjectString);
 
-							EquationHandler equationHandler = new EquationHandler();
-							Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
+							EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
 									valueMap);
+							Object valueObject = equationHandler.handleExpression();
 							
 							// System.out.println("******* Returned Value: " + valueObject);
 
 							Literal literal = sourceModel.createTypedLiteral(valueObject);
 							resource.addProperty(property, literal);
+							
+							changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
 						}
 
 						currentSubjectString = resourceString;
@@ -1047,6 +1046,10 @@ public class Expression {
 			if (!currentSubjectString.equals("")) {
 				// System.out.println("Current subject: " + currentSubjectString);
 				Resource resource = sourceModel.createResource(currentSubjectString);
+				Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+				Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+				resource.removeAll(typeProperty);
+				resource.addProperty(typeProperty, targetConceptResource);
 
 				for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
 					MapperTransform mapperTransform = conceptTransform.getMapperTransformMap().get(mapperString);
@@ -1060,28 +1063,84 @@ public class Expression {
 //					}
 
 					Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
-					resource.removeAll(property);
+
+					removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+					for (String key : valueMap.keySet()) {
+						String removeString = prefixExtraction.assignIRI(key);
+						if (mapperTransform.getSourceProperty().contains(removeString)) {
+							removeProperty(resource, removeString, sourceModel);
+							break;
+						}
+					}
 					propertyMap.put(mapperString, (propertyMap.size() + 1));
 
 					// methods.print("Size: " + valueMap.size());
 					// methods.print(valueMap);
 
-					EquationHandler equationHandler = new EquationHandler();
-					Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
+					EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
 							valueMap);
+					Object valueObject = equationHandler.handleExpression();
 
 					Literal literal = sourceModel.createTypedLiteral(valueObject);
 					resource.addProperty(property, literal);
+					
+					changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
 				}
 			}
+			
+			changeConceptInTempModel(outputMappingFile, tempMapModel, conceptString, conceptTransform);
 		}
 
 		Methods.saveModel(sourceModel, targetABoxFile);
+		
+		if (!outputMappingFile.isEmpty()) {
+			Methods.saveModel(tempMapModel, outputMappingFile);
+		}
 
 		return "Successful.\nFile Saved: " + targetABoxFile;
 	}
+
+	private void changeConceptInTempModel(String outputMappingFile, Model tempMapModel, String conceptString,
+			ConceptTransform conceptTransform) {
+		if (!outputMappingFile.isEmpty()) {
+			String targetTypeString = conceptTransform.getTargetType();
+			Resource targetTypeResource = tempMapModel.createResource(targetTypeString);
+			
+			String propertyName = prefixExtraction.assignIRI("map:sourceConcept");
+			Property sourceConcept = tempMapModel.createProperty(propertyName);
+			
+			Resource conceptResource = tempMapModel.createResource(conceptString);
+			conceptResource.removeAll(sourceConcept);
+			
+			conceptResource.addProperty(sourceConcept, targetTypeResource);
+		}
+	}
+
+	private void changeMapperInTempMapModel(String outputMappingFile, Model tempMapModel, String mapperString,
+			MapperTransform mapperTransform) {
+		if (!outputMappingFile.isEmpty()) {
+			String targetTypeString = mapperTransform.getTargetProperty();
+			Resource targetTypeResource = tempMapModel.createResource(targetTypeString);
+			
+			String propertyName = prefixExtraction.assignIRI("map:sourceProperty");
+			Property sourceConcept = tempMapModel.createProperty(propertyName);
+			
+			String expressionString = prefixExtraction.assignIRI("map:SourceProperty");
+			Resource expressionResource = tempMapModel.createResource(expressionString);
+			
+			String typeName = prefixExtraction.assignIRI("map:sourcePropertyType");
+			Property typeProperty = tempMapModel.createProperty(typeName);
+			
+			Resource mapperResource = tempMapModel.createResource(mapperString);
+			mapperResource.removeAll(sourceConcept);
+			mapperResource.removeAll(typeProperty);
+			
+			mapperResource.addProperty(sourceConcept, targetTypeResource);
+			mapperResource.addProperty(typeProperty, expressionResource);
+		}
+	}
 	
-	public String transformOnLiteralFromLargeFile(String mapFile, String sourceFile, String targetABoxFile, boolean isNew) {
+	public String transformOnLiteralFromLargeFile(String mapFile, String sourceFile, String targetABoxFile, String outputMappingFile) {
 		prefixExtraction.extractPrefix(mapFile);
 		// prefixExtraction.extractPrefix(sourceFile);
 
@@ -1090,6 +1149,9 @@ public class Expression {
 		if (mapModel == null) {
 			return "Check Map File";
 		}
+		
+		Model tempMapModel = ModelFactory.createDefaultModel();
+		tempMapModel.add(mapModel);
 
 		String sparql = "\nPREFIX map: <http://www.map.org/example#>\n"
 				+ "SELECT * WHERE {"
@@ -1184,6 +1246,10 @@ public class Expression {
 						} else {
 
 							Resource resource = sourceModel.createResource(currentSubjectString);
+							Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+							Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+							resource.removeAll(typeProperty);
+							resource.addProperty(typeProperty, targetConceptResource);
 
 							for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
 								MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
@@ -1199,43 +1265,26 @@ public class Expression {
 
 								Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
 
-								if (!resource.hasProperty(property)) {
-									String iri = mapperTransform.getTargetProperty();
-									if (iri.contains("#")) {
-										String[] segments = iri.split("#");
-										if (segments.length == 2) {
-											String firstSegment = segments[0].trim() + "/";
-											String secondSegment = segments[1];
-
-											property = sourceModel.createProperty(firstSegment + secondSegment);
-										}
-									} else {
-										String[] segments = iri.split("/");
-										String lastSegment = segments[segments.length - 1];
-
-										String firstSegment = "";
-										if (iri.endsWith(lastSegment)) {
-											firstSegment = iri.replace(lastSegment, "");
-										}
-
-										firstSegment = firstSegment.substring(0, firstSegment.length() - 1) + "#";
-
-										property = sourceModel.createProperty(firstSegment + lastSegment);
+								removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+								for (String key : valueMap.keySet()) {
+									String removeString = prefixExtraction.assignIRI(key);
+									if (mapperTransform.getSourceProperty().contains(removeString)) {
+										removeProperty(resource, removeString, sourceModel);
+										break;
 									}
 								}
-
-								resource.removeAll(property);
-
 								propertyMap.put(mapperString, (propertyMap.size() + 1));
 
 								// System.out.println("Current: " + currentSubjectString);
 
-								EquationHandler equationHandler = new EquationHandler();
-								Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
+								EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
 										valueMap);
+								Object valueObject = equationHandler.handleExpression();
 
 								Literal literal = sourceModel.createTypedLiteral(valueObject);
 								resource.addProperty(property, literal);
+								
+								changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
 							}
 
 							currentSubjectString = resourceString;
@@ -1248,6 +1297,10 @@ public class Expression {
 				if (!currentSubjectString.equals("")) {
 					// System.out.println("Current subject: " + currentSubjectString);
 					Resource resource = sourceModel.createResource(currentSubjectString);
+					Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+					Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+					resource.removeAll(typeProperty);
+					resource.addProperty(typeProperty, targetConceptResource);
 
 					for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
 						MapperTransform mapperTransform = conceptTransform.getMapperTransformMap().get(mapperString);
@@ -1261,29 +1314,512 @@ public class Expression {
 //					}
 
 						Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
-						resource.removeAll(property);
+
+						removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+						for (String key : valueMap.keySet()) {
+							String removeString = prefixExtraction.assignIRI(key);
+							if (mapperTransform.getSourceProperty().contains(removeString)) {
+								removeProperty(resource, removeString, sourceModel);
+								break;
+							}
+						}
 						propertyMap.put(mapperString, (propertyMap.size() + 1));
 
 						// methods.print("Size: " + valueMap.size());
 						// methods.print(valueMap);
 
-						EquationHandler equationHandler = new EquationHandler();
-						Object valueObject = equationHandler.handleExpression(mapperTransform.getSourceProperty(),
+						EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
 								valueMap);
+						Object valueObject = equationHandler.handleExpression();
 
 						Literal literal = sourceModel.createTypedLiteral(valueObject);
 						resource.addProperty(property, literal);
+						
+						changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
 					}
 				}
+				
+				changeConceptInTempModel(outputMappingFile, tempMapModel, conceptString, conceptTransform);
 			}
 
 			if (sourceModel.size() > 0) {
 				Methods.checkToSaveModel(targetABoxFile, sourceModel);
 			}
 		}
+		
+		if (!outputMappingFile.isEmpty()) {
+			Methods.saveModel(tempMapModel, outputMappingFile);
+		}
 
 		return "Successful.\nFile Saved: " + targetABoxFile;
 	}
 	
+
+
+	public String transformOnLiteral(String mapFileString, String sourceFileString, String targetFileString, String outputMappingFile, String conceptMapperStringName) {
+		// TODO Auto-generated method stub
+		
+//		System.out.println("TransformOnLiteral");
+//		System.out.println(mapFileString);
+//		System.out.println(sourceFileString);
+//		System.out.println(targetFileString);
+//		System.out.println(outputMappingFile);
+//		System.out.println(conceptMapperStringName);
+		
+		if (Methods.isJenaAccessible(sourceFileString)) {
+			return transformOnLiteralFromTinyFile(mapFileString, sourceFileString, targetFileString, outputMappingFile, conceptMapperStringName);
+		} else {
+//			System.out.println("Large");
+			return transformOnLiteralFromLargeFile(mapFileString, sourceFileString, targetFileString, outputMappingFile, conceptMapperStringName);
+		}
+	}
 	
+	public String transformOnLiteralFromLargeFile(String mapFile, String sourceFile,
+			String targetABoxFile, String outputMappingFile, String conceptMapperStringName) {
+		prefixExtraction.extractPrefix(mapFile);
+		// prefixExtraction.extractPrefix(sourceFile);
+
+		Model mapModel = Methods.readModelFromPath(mapFile);
+		
+		if (mapModel == null) {
+			return "Check Map File";
+		}
+		
+		Model tempMapModel = ModelFactory.createDefaultModel();
+		tempMapModel.add(mapModel);
+
+		String sparql = "\nPREFIX map: <http://www.map.org/example#>\n"
+				+ "SELECT * WHERE {"
+				+ "?concept a map:ConceptMapper."
+				+ "?concept map:targetConcept ?targetType."
+				+ "?concept map:sourceConcept ?sourcetype."
+				+ "?mapper a map:PropertyMapper."
+				+ "?mapper map:ConceptMapper ?concept."
+				+ "?mapper map:sourceProperty ?source."
+				+ "?mapper map:sourcePropertyType map:SourceExpression."
+				+ "?mapper map:targetProperty ?target."
+				+ "}";
+
+		ResultSet resultSet = Methods.executeQuery(mapModel, sparql);
+//		Methods.print(resultSet);
+
+		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<String, ConceptTransform>();
+		LinkedHashMap<String, Integer> propertyMap = new LinkedHashMap<String, Integer>();
+
+		while (resultSet.hasNext()) {
+			QuerySolution querySolution = resultSet.next();
+			String conceptString = querySolution.get("concept").toString();
+			
+			if (conceptString.equals(conceptMapperStringName)) {
+				String targetTypeString = querySolution.get("targetType").toString();
+				String sourceTypeString = querySolution.get("sourcetype").toString();
+
+				String mapperString = querySolution.get("mapper").toString();
+				String targetPropertyString = querySolution.get("target").toString();
+				String sourcePropertyString = querySolution.get("source").toString();
+				String sourcePropertyTypeString = "map:SourceExpression";
+
+				MapperTransform mapperTransform = new MapperTransform(sourcePropertyString, sourcePropertyTypeString,
+						targetPropertyString);
+
+				if (conceptMap.containsKey(conceptString)) {
+					ConceptTransform conceptTransform = conceptMap.get(conceptString);
+					conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
+					conceptMap.replace(conceptString, conceptTransform);
+				} else {
+					ConceptTransform conceptTransform = new ConceptTransform();
+					conceptTransform.setConcept(conceptString);
+					conceptTransform.setTargetType(targetTypeString);
+					conceptTransform.setSourceType(sourceTypeString);
+					conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
+					conceptMap.put(conceptString, conceptTransform);
+				}
+			}
+		}
+		
+		int numOfFiles = FileSeparation.splitFileByLine(sourceFile, Variables.MAX_SPLIT_LINE);
+		System.out.println("Num of Files: " + numOfFiles);
+
+		for (int i = 1; i <= numOfFiles; i++) {
+			String tinySourcePath = Variables.MODEL_DIR + "\\model" + i + ".nt";
+			
+			Model sourceModel = Methods.readModelFromPath(tinySourcePath);
+			
+			if (sourceModel == null) {
+				return "Check Source File: " + tinySourcePath;
+			}
+
+			for (String conceptString : conceptMap.keySet()) {
+				ConceptTransform conceptTransform = conceptMap.get(conceptString);
+				String typeString = Methods.bracketString(conceptTransform.getSourceType());
+
+				String sparqlString = "SELECT * WHERE {" + "?s a " + typeString + "." + "?s ?p ?o.}";
+
+				ResultSet set = Methods.executeQuery(sourceModel, sparqlString);
+//				Methods.print(set);
+
+				String currentSubjectString = "";
+				LinkedHashMap<String, Object> valueMap = new LinkedHashMap<String, Object>();
+
+				while (set.hasNext()) {
+
+					QuerySolution querySolution = set.next();
+					String resourceString = querySolution.get("s").toString();
+					String predicateString = querySolution.get("p").toString();
+					RDFNode object = querySolution.get("o");
+
+					// String prefixPredicate = assignPrefix(predicateString);
+					// System.out.println("Prefix predicate: " + prefixPredicate + " Subject: " +
+					// resourceString);
+
+					if (currentSubjectString.equals(resourceString)) {
+						valueMap.put(prefixExtraction.assignPrefix(predicateString), Methods.getRDFNodeValue(object));
+
+						// System.out.println("Added");
+					} else {
+						if (currentSubjectString.equals("")) {
+							currentSubjectString = resourceString;
+							valueMap.put(prefixExtraction.assignPrefix(predicateString), Methods.getRDFNodeValue(object));
+
+						} else {
+
+							Resource resource = sourceModel.createResource(currentSubjectString);
+							Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+							Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+							resource.removeAll(typeProperty);
+							resource.addProperty(typeProperty, targetConceptResource);
+
+							for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
+								MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
+										.get(mapperString);
+
+//							int index = 0;
+//							if (propertyMap.containsKey(mapperTransform.getSourceProperty())) {
+//								index = propertyMap.get(mapperTransform.getSourceProperty());
+//							} else {
+//								index = propertyMap.size() + 1;
+//								propertyMap.put(mapperTransform.getSourceProperty(), index);
+//							}
+
+								Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
+
+								removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+								for (String key : valueMap.keySet()) {
+									String removeString = prefixExtraction.assignIRI(key);
+									if (mapperTransform.getSourceProperty().contains(removeString)) {
+										removeProperty(resource, removeString, sourceModel);
+										break;
+									}
+								}
+								propertyMap.put(mapperString, (propertyMap.size() + 1));
+
+								// System.out.println("Current: " + currentSubjectString);
+
+								EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
+										valueMap);
+								Object valueObject = equationHandler.handleExpression();
+
+								Literal literal = sourceModel.createTypedLiteral(valueObject);
+								resource.addProperty(property, literal);
+								
+								changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
+							}
+
+							currentSubjectString = resourceString;
+							valueMap = new LinkedHashMap<String, Object>();
+							valueMap.put(prefixExtraction.assignPrefix(predicateString), Methods.getRDFNodeValue(object));
+						}
+					}
+				}
+
+				if (!currentSubjectString.equals("")) {
+					// System.out.println("Current subject: " + currentSubjectString);
+					Resource resource = sourceModel.createResource(currentSubjectString);
+					Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+					Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+					resource.removeAll(typeProperty);
+					resource.addProperty(typeProperty, targetConceptResource);
+
+					for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
+						MapperTransform mapperTransform = conceptTransform.getMapperTransformMap().get(mapperString);
+
+//					int index = 0;
+//					if (propertyMap.containsKey(mapperTransform.getSourceProperty())) {
+//						index = propertyMap.get(mapperTransform.getSourceProperty());
+//					} else {
+//						index = propertyMap.size() + 1;
+//						propertyMap.put(mapperTransform.getSourceProperty(), index);
+//					}
+
+						Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
+
+						removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+						for (String key : valueMap.keySet()) {
+							String removeString = prefixExtraction.assignIRI(key);
+							if (mapperTransform.getSourceProperty().contains(removeString)) {
+								removeProperty(resource, removeString, sourceModel);
+								break;
+							}
+						}
+						propertyMap.put(mapperString, (propertyMap.size() + 1));
+
+						// methods.print("Size: " + valueMap.size());
+						// methods.print(valueMap);
+
+						EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
+								valueMap);
+						Object valueObject = equationHandler.handleExpression();
+
+						Literal literal = sourceModel.createTypedLiteral(valueObject);
+						resource.addProperty(property, literal);
+						
+						changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
+					}
+				}
+				
+				changeConceptInTempModel(outputMappingFile, tempMapModel, conceptString, conceptTransform);
+			}
+
+			if (sourceModel.size() > 0) {
+				Methods.checkToSaveModel(targetABoxFile, sourceModel);
+			}
+		}
+		
+		if (!outputMappingFile.isEmpty()) {
+			Methods.saveModel(tempMapModel, outputMappingFile);
+		}
+
+		return "Successful.\nFile Saved: " + targetABoxFile;
+	}
+
+	public String transformOnLiteralFromTinyFile(String mapFile, String sourceFile, String targetABoxFile, String outputMappingFile, String conceptMapperStringName) {
+		prefixExtraction.extractPrefix(mapFile);
+		prefixExtraction.extractPrefix(sourceFile);
+
+		Model mapModel = ModelFactory.createDefaultModel();
+		try {
+			mapModel.read(mapFile);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return "Check Mapping file";
+		}
+		
+		Model sourceModel = Methods.readModelFromPath(sourceFile);
+		
+		if (sourceModel == null) {
+			return "Check Source File";
+		}
+		
+		Model tempMapModel = ModelFactory.createDefaultModel();
+		tempMapModel.add(mapModel);
+
+		String sparql = "\nPREFIX map: <http://www.map.org/example#>\n"
+						+ "SELECT * WHERE {"
+						+ "?concept a map:ConceptMapper."
+						+ "?concept map:targetConcept ?targetType."
+						+ "?concept map:sourceConcept ?sourcetype."
+						+ "?mapper a map:PropertyMapper."
+						+ "?mapper map:ConceptMapper ?concept."
+						+ "?mapper map:sourceProperty ?source."
+						+ "?mapper map:sourcePropertyType map:SourceExpression."
+						+ "?mapper map:targetProperty ?target."
+						+ "}";
+
+		ResultSet resultSet = Methods.executeQuery(mapModel, sparql);
+//		Methods.print(resultSet);
+
+		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<String, ConceptTransform>();
+		LinkedHashMap<String, Integer> propertyMap = new LinkedHashMap<>();
+
+		while (resultSet.hasNext()) {
+			QuerySolution querySolution = resultSet.next();
+			String conceptString = querySolution.get("concept").toString();
+			
+			if (conceptString.equals(conceptMapperStringName)) {
+				String targetTypeString = querySolution.get("targetType").toString();
+				String sourceTypeString = querySolution.get("sourcetype").toString();
+
+				String mapperString = querySolution.get("mapper").toString();
+				String targetPropertyString = querySolution.get("target").toString();
+				String sourcePropertyString = querySolution.get("source").toString();
+				String sourcePropertyTypeString = "map:SourceExpression";
+
+				MapperTransform mapperTransform = new MapperTransform(sourcePropertyString, sourcePropertyTypeString,
+						targetPropertyString);
+				mapperTransform.setMapperName(mapperString);
+
+				if (conceptMap.containsKey(conceptString)) {
+					ConceptTransform conceptTransform = conceptMap.get(conceptString);
+					conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
+					conceptMap.replace(conceptString, conceptTransform);
+				} else {
+					ConceptTransform conceptTransform = new ConceptTransform();
+					conceptTransform.setConcept(conceptString);
+					conceptTransform.setTargetType(targetTypeString);
+					conceptTransform.setSourceType(sourceTypeString);
+					conceptTransform.getMapperTransformMap().put(mapperString, mapperTransform);
+					conceptMap.put(conceptString, conceptTransform);
+				}
+			}
+		}
+
+		for (String conceptString : conceptMap.keySet()) {
+			ConceptTransform conceptTransform = conceptMap.get(conceptString);
+			String typeString = Methods.bracketString(conceptTransform.getSourceType());
+
+			String sparqlString = "SELECT * WHERE {" + "?s a " + typeString + "." + "?s ?p ?o.}";
+
+//			System.out.println(sparqlString);
+			ResultSet set = Methods.executeQuery(sourceModel, sparqlString);
+//			Methods.print(set);
+
+			String currentSubjectString = "";
+			LinkedHashMap<String, Object> valueMap = new LinkedHashMap<String, Object>();
+
+			while (set.hasNext()) {
+				QuerySolution querySolution = set.next();
+				String resourceString = querySolution.get("s").toString();
+				String predicateString = querySolution.get("p").toString();
+				RDFNode object = querySolution.get("o");
+
+				// String prefixPredicate = assignPrefix(predicateString);
+				// System.out.println("Prefix predicate: " + prefixPredicate + " Subject: " +
+				// resourceString);
+
+				if (currentSubjectString.equals(resourceString)) {
+					valueMap.put(prefixExtraction.assignPrefix(predicateString), Methods.getRDFNodeValue(object));
+
+					// System.out.println("Added");
+				} else {
+					if (currentSubjectString.equals("")) {
+						currentSubjectString = resourceString;
+						valueMap.put(prefixExtraction.assignPrefix(predicateString), Methods.getRDFNodeValue(object));
+					} else {
+						Resource resource = sourceModel.createResource(currentSubjectString);
+						Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+						Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+						resource.removeAll(typeProperty);
+						resource.addProperty(typeProperty, targetConceptResource);
+
+						for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
+							MapperTransform mapperTransform = conceptTransform.getMapperTransformMap()
+									.get(mapperString);
+//							}
+
+							Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
+
+							removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+							
+							for (String key : valueMap.keySet()) {
+								String removeString = prefixExtraction.assignIRI(key);
+								if (mapperTransform.getSourceProperty().contains(removeString)) {
+									removeProperty(resource, removeString, sourceModel);
+									break;
+								}
+							}
+							propertyMap.put(mapperString, (propertyMap.size() + 1));
+
+							// System.out.println("Current: " + currentSubjectString);
+							
+//							System.out.println("Before expression handler");
+//							for (String key : valueMap.keySet()) {
+//								System.out.println(key);
+//							}
+
+							EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
+									valueMap);
+							Object valueObject = equationHandler.handleExpression();
+							
+//							System.out.println("******* Returned Value: " + valueObject);
+
+							Literal literal = sourceModel.createTypedLiteral(valueObject);
+							resource.addProperty(property, literal);
+							
+							changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
+						}
+
+						currentSubjectString = resourceString;
+						valueMap = new LinkedHashMap<String, Object>();
+						valueMap.put(prefixExtraction.assignPrefix(predicateString), Methods.getRDFNodeValue(object));
+					}
+				}
+			}
+
+			if (!currentSubjectString.equals("")) {
+				// System.out.println("Current subject: " + currentSubjectString);
+				Resource resource = sourceModel.createResource(currentSubjectString);
+				Resource targetConceptResource = sourceModel.createResource(conceptTransform.getTargetType());
+				Property typeProperty = sourceModel.createProperty(RDF.type.toString());
+				resource.removeAll(typeProperty);
+				resource.addProperty(typeProperty, targetConceptResource);
+
+				for (String mapperString : conceptTransform.getMapperTransformMap().keySet()) {
+					MapperTransform mapperTransform = conceptTransform.getMapperTransformMap().get(mapperString);					
+
+					Property property = sourceModel.createProperty(mapperTransform.getTargetProperty());
+
+					removeProperty(resource, mapperTransform.getTargetProperty(), sourceModel);
+					for (String key : valueMap.keySet()) {
+						String removeString = prefixExtraction.assignIRI(key);
+						if (mapperTransform.getSourceProperty().contains(removeString)) {
+							removeProperty(resource, removeString, sourceModel);
+							break;
+						}
+					}
+					propertyMap.put(mapperString, (propertyMap.size() + 1));
+
+					EquationHandler equationHandler = new EquationHandler(prefixExtraction, mapperTransform.getSourceProperty(),
+							valueMap);
+					Object valueObject = equationHandler.handleExpression();
+
+					Literal literal = sourceModel.createTypedLiteral(valueObject);
+					resource.addProperty(property, literal);
+					
+					changeMapperInTempMapModel(outputMappingFile, tempMapModel, mapperString, mapperTransform);
+				}
+			}
+			
+			changeConceptInTempModel(outputMappingFile, tempMapModel, conceptString, conceptTransform);
+		}
+
+		Methods.saveModel(sourceModel, targetABoxFile);
+		
+		if (!outputMappingFile.isEmpty()) {
+			Methods.saveModel(tempMapModel, outputMappingFile);
+		}
+
+		return "Successful.\nFile Saved: " + targetABoxFile;
+	}
+	
+	public void removeProperty(Resource resource, String propertyName, Model sourceModel) {
+		Property property = sourceModel.createProperty(propertyName);
+
+		if (!resource.hasProperty(property)) {
+			String iri = propertyName;
+			if (iri.contains("#")) {
+				String[] segments = iri.split("#");
+				if (segments.length == 2) {
+					String firstSegment = segments[0].trim() + "/";
+					String secondSegment = segments[1];
+
+					property = sourceModel.createProperty(firstSegment + secondSegment);
+				}
+			} else {
+				String[] segments = iri.split("/");
+				String lastSegment = segments[segments.length - 1];
+
+				String firstSegment = "";
+				if (iri.endsWith(lastSegment)) {
+					firstSegment = iri.replace(lastSegment, "");
+				}
+
+				firstSegment = firstSegment.substring(0, firstSegment.length() - 1) + "#";
+
+				property = sourceModel.createProperty(firstSegment + lastSegment);
+			}
+		}
+
+		resource.removeAll(property);
+	}
 }

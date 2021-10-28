@@ -1,8 +1,10 @@
 package core;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,61 +24,84 @@ import org.apache.jena.vocabulary.RDF;
 import helper.Methods;
 import helper.Variables;
 import model.ConceptTransform;
+import model.MapperTransform;
+import view.PanelETL;
 
-public class FactEntryGeneration {
-
+public class InstanceGenerator {
 	private CSVExtraction csvExtraction;
 	private IRIGenerator iriGenerator;
 	private PrefixExtraction prefixExtraction;
 
-	public FactEntryGeneration() {
+	public InstanceGenerator() {
 		// TODO Auto-generated constructor stub
 		csvExtraction = new CSVExtraction();
 		iriGenerator = new IRIGenerator();
 		prefixExtraction = new PrefixExtraction();
 	}
 
-//	public static void main(String[] args) {
-//		// TODO Auto-generated method stub
-//		String basePath = "C:\\Users\\Amrit\\Documents\\1\\thesis\\";
-//
-//		String sourceFile = basePath + "sources\\Census02_Sex.ttl";
-//		String mapFile = basePath + "map.ttl";
-//		String targetTBoxFile = basePath + "bd_tbox.ttl";
-//		String targetABoxFile = basePath + "files\\Census02_Sex.ttl";
-//		String delimiter = "Comma (,)";
-//		String provGraph = basePath + "prov.ttl";
-//		
-//		Methods.deleteAndCreateFile(provGraph);
-//		
-//		Methods.startProcessingTime();
-//
-//		FactEntryGeneration factEntryGenerator = new FactEntryGeneration();
-//		
-////		String result = factEntryGenerator.generateFactEntryFromCSV(sourceFile, mapFile, targetTBoxFile, targetABoxFile,
-////				delimiter);
-////		
-//		
-//		String result = factEntryGenerator.generateFactEntryFromRDF(sourceFile, mapFile, targetTBoxFile, targetABoxFile, provGraph);
-//		
-//		
-//		System.out.println(result);
-//		
-//		Methods.endProcessingTime();
-//	}
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		String basePath = "C:\\Users\\Amrit\\Documents\\1\\thesis\\";
 
-	public String generateFactEntryFromCSV(String sourceFile, String mapFile, String targetTBoxFile,
-			String targetABoxFile, String delimiter) {
-//		System.out.println(sourceFile);
-//		System.out.println(mapFile);
-//		System.out.println(targetTBoxFile);
-//		System.out.println(targetABoxFile);
-//		System.out.println(delimiter);
+		String sourceFile = basePath + "sources\\PopulationType.ttl";
+		String mapFile = basePath + "map.ttl";
+		String targetTBoxFile = basePath + "bd_tbox.ttl";
+		String targetABoxFile = basePath + "files\\PopulationType.ttl";
+		String delimiter = "Comma (,)";
+		String provGraph = basePath + "prov.ttl";
 		
+		Methods.deleteAndCreateFile(provGraph);
+
+		Methods.startProcessingTime();
+
+		LevelEntryGenerator levelEntryGenerator = new LevelEntryGenerator();
+		String resultString = levelEntryGenerator.generateLevelEntryFromRDF(sourceFile, mapFile, targetTBoxFile, targetABoxFile,
+				provGraph);
+
+		System.out.println(resultString);
+		Methods.endProcessingTime();
+
+//		String basePath = "I:\\Data\\level\\csv\\large\\";
+////
+////		String sourceFile = basePath + "city.csv";
+////		String mapFile = basePath + "map_current.ttl";
+////		String targetTBox = basePath + "subsidy.ttl";
+////		String targetABox = basePath + "city_entry.ttl";
+////		String delimiter = "Comma (,)";
+//		
+//		String sourceFile = basePath + "recipient.csv";
+//		String mapFile = basePath + "map_current.ttl";
+//		String targetTBox = basePath + "subsidy.ttl";
+//		String targetABox = basePath + "recipient_entry.ttl";
+//		String delimiter = "Comma (,)";
+//
+//		Methods.startProcessingTime();
+//		// Methods.createNewFile(provGraph);
+//		LevelEntryGenerator levelEntryGenerator = new LevelEntryGenerator();
+//		String resultString = levelEntryGenerator.generateLevelEntryFromCSV(sourceFile, mapFile, targetTBox, targetABox, delimiter);
+//
+//		System.out.println(resultString);
+//		Methods.endProcessingTime();
+	}
+	
+	public String generateInstanceEntry(String sourceABoxFile, String delimiter, String mappingFile,
+			String provFile, String targetTBoxFile, String targetABoxFile) {
+		// TODO Auto-generated method stub
+
+		if (sourceABoxFile.contains(".csv")) {
+			return generateInstanceEntryFromCSV(sourceABoxFile, mappingFile, targetTBoxFile, targetABoxFile,
+					delimiter);
+		} else {
+			return generateInstanceEntryFromRDF(sourceABoxFile, mappingFile, targetTBoxFile, targetABoxFile, provFile);
+		}
+	}
+
+	public String generateInstanceEntryFromCSV(String sourceFile, String mapFile, String targetTBoxFile,
+			String targetABoxFile, String delimiter) {
 		delimiter = Methods.getCSVDelimiter(delimiter);
 
 		String sourceFileName = Methods.getFileName(sourceFile);
-
+		
 		Model targetTBoxModel = ModelFactory.createDefaultModel();
 		try {
 			targetTBoxModel.read(targetTBoxFile);
@@ -101,7 +126,8 @@ public class FactEntryGeneration {
 		
 		prefixExtraction.extractPrefix(mapFile);
 
-//		System.out.println(sourceFileName);
+		sourceFileName = Methods.getUppercaseWord(sourceFileName);
+		
 
 		String sparql = "PREFIX map: <http://www.map.org/example#>\r\n"
 				+ "PREFIX	qb:	<http://purl.org/linked-data/cube#>\r\n"
@@ -113,31 +139,31 @@ public class FactEntryGeneration {
 				+ "?concept map:targetConcept ?ttype. \r\n"
 				+ "?concept map:iriValueType ?iritype. \r\n"
 				+ "?concept map:iriValue ?irivalue. \r\n"
-				+ "?ttype a qb:DataSet. \r\n"
+//				+ "?ttype a qb4o:LevelProperty. \r\n"
 				+ "OPTIONAL {?ttype rdfs:range ?range.}"
+				+ "OPTIONAL {?concept  map:namespaceType ?namespacetype.}"
+				+ "OPTIONAL {?concept map:namespaceValue ?namespacevalue.}"
 				+ "?mapper a map:PropertyMapper. \r\n"
 				+ "?mapper map:ConceptMapper ?concept. \r\n"
 				+ "?mapper map:sourceProperty ?sprop. \r\n"
 				+ "?mapper map:targetProperty ?tprop. \r\n"
-//				+ "FILTER regex(str(?stype), '" + sourceFileName+ "'). \r\n"
-				+ "}";
+				+ "OPTIONAL {?mapper  map:namespaceType ?pnamespacetype.}"
+				+ "OPTIONAL {?mapper map:namespaceValue ?pnamespacevalue.}"
+				+ "FILTER regex(str(?stype), '" + sourceFileName
+				+ "'). \r\n" + "}";
 
 		ResultSet resultSet = Methods.executeQuery(completeModel, sparql);
 		completeModel.close();
 
 //		Methods.print(resultSet);
 
-		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<String, ConceptTransform>();
+		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<>();
 
 		while (resultSet.hasNext()) {
 			QuerySolution querySolution = resultSet.next();
 			String sourceType = querySolution.get("stype").toString();
-			
-//			System.out.println(Methods.getLastSegmentOfIRI(sourceType) + " - " + sourceFileName);
 
 			if (Methods.getLastSegmentOfIRI(sourceType).equals(sourceFileName)) {
-//				System.out.println("Matched");
-				
 				String concept = querySolution.get("concept").toString();
 				String targetType = querySolution.get("ttype").toString();
 				String iriValue = querySolution.get("irivalue").toString();
@@ -147,14 +173,39 @@ public class FactEntryGeneration {
 				if (querySolution.get("range") != null) {
 					rangeString = querySolution.get("range").toString();
 				}
+				
+				String namespaceTypeString = "";
+				if (querySolution.get("namespacetype") != null) {
+					namespaceTypeString = querySolution.get("namespacetype").toString();
+				}
+				
+				String namespaceValueString = "";
+				if (querySolution.get("namespacevalue") != null) {
+					namespaceValueString = querySolution.get("namespacevalue").toString();
+				}
 
 //				String mapper = querySolution.get("mapper").toString();
 				String sourceProperty = querySolution.get("sprop").toString();
 				String targetProperty = querySolution.get("tprop").toString();
+				
+				String propertyNamespaceTypeString = "";
+				if (querySolution.get("pnamespacetype") != null) {
+					propertyNamespaceTypeString = querySolution.get("pnamespacetype").toString();
+				}
+				
+				String propertyNamespaceValueString = "";
+				if (querySolution.get("pnamespacevalue") != null) {
+					propertyNamespaceValueString = querySolution.get("pnamespacevalue").toString();
+				}
+				
+				MapperTransform mapperTransform = new MapperTransform();
+				mapperTransform.setNamespaceTypeString(propertyNamespaceTypeString);
+				mapperTransform.setNamespaceValueString(propertyNamespaceValueString);
 
 				if (conceptMap.containsKey(concept)) {
 					ConceptTransform conceptTransform = conceptMap.get(concept);
 					conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
+					conceptTransform.getMapperTransformMap().put(sourceProperty, mapperTransform);
 					conceptMap.replace(concept, conceptTransform);
 				} else {
 					ConceptTransform conceptTransform = new ConceptTransform();
@@ -163,8 +214,11 @@ public class FactEntryGeneration {
 					conceptTransform.setTargetType(targetType);
 					conceptTransform.setIriValue(iriValue);
 					conceptTransform.setIriValueType(iriType);
-					
+					conceptTransform.setRangeString(rangeString);
+					conceptTransform.setNamespaceTypeString(namespaceTypeString);
+					conceptTransform.setNamespaceValueString(namespaceValueString);
 					conceptTransform.getPropertyMap().put(sourceProperty, targetProperty);
+					conceptTransform.getMapperTransformMap().put(sourceProperty, mapperTransform);
 					conceptMap.put(concept, conceptTransform);
 				}
 			}
@@ -181,52 +235,44 @@ public class FactEntryGeneration {
 			ConceptTransform conceptTransform = conceptMap.get(concept);
 
 			LinkedHashMap<Integer, String> targetPropertyMap = new LinkedHashMap<>();
+			LinkedHashMap<Integer, MapperTransform> mapperTransformMap = new LinkedHashMap<>();
 
 			BufferedReader br = null;
-			String line = "";
+			String line;
 
 			try {
-				br = new BufferedReader(new FileReader(sourceFile));
+				br = new BufferedReader(new InputStreamReader(new FileInputStream(sourceFile), StandardCharsets.UTF_8));
 
 				line = br.readLine();
 				line += delimiter;
 
 				ArrayList<String> columnNames = csvExtraction.parseCSVLine(line, delimiter, true);
-//				System.out.println("Total Columns: " + columnNames.size());
-
-//				int index = columnNames.indexOf(columnName);
-
-//				String iriPropertyName = Methods.getLastSegmentOfIRI(conceptTransform.getIriValue());
 
 				for (int i = 0; i < columnNames.size(); i++) {
 					String column = columnNames.get(i);
-//					System.out.println("Column: " + column);
 
 					for (Map.Entry<String, String> map : conceptTransform.getPropertyMap().entrySet()) {
 						String sourceProperty = map.getKey();
 						String targetProperty = map.getValue();
 
-//						System.out.println("Source Property: " + sourceProperty + " - Target Property" + targetProperty);
-
 						String propertyName = Methods.getLastSegmentOfIRI(sourceProperty);
+						MapperTransform mapperTransform = conceptTransform.getMapperTransformMap().get(sourceProperty);
 
 						if (column.equals(propertyName)) {
-//							System.out.println("Added");
 							targetPropertyMap.put(i, targetProperty);
+							mapperTransformMap.put(i, mapperTransform);
 
 							break;
 						}
 					}
 				}
-
-//				System.out.println("Target Property Map: " + targetPropertyMap.size());
+				
+//				System.out.println("Map Size: " + mapperTransformMap.size());
 
 				ArrayList<Integer> faultList = new ArrayList<>();
 
 				int count = 0, numOfFiles = 1;
 				while ((line = br.readLine()) != null) {
-					// System.out.println(line);
-
 					line += delimiter;
 					ArrayList<String> columnValues = csvExtraction.parseCSVLine(line, delimiter, false);
 
@@ -235,14 +281,11 @@ public class FactEntryGeneration {
 
 						if (conceptTransform.getIriValueType().contains("SourceAttribute")) {
 							String iriPropertyName = Methods.getLastSegmentOfIRI(conceptTransform.getIriValue());
-//							System.out.println(iriPropertyName);
 
 							if (columnNames.contains(iriPropertyName)) {
 								int index = columnNames.indexOf(iriPropertyName);
 
 								iriValue = columnValues.get(index);
-
-//								System.out.println(iriValue);
 							} else {
 								System.out.println("No IRI Value");
 							}
@@ -263,45 +306,34 @@ public class FactEntryGeneration {
 									valueMap, true);
 							
 							iriValue = valueObject.toString();
-							
-//							System.out.println("Ex IRIValue: " + valueObject);
 						}
 
-						iriValue = Methods.formatURL(iriValue);
-						// iriValue = iriValue.substring(0, 1).toUpperCase() + iriValue.substring(1);
-
-//						System.out.println(iriValue);
-						String iriString = "";
+						// iriValue = Methods.formatURL(iriValue); // commenting to stop converting underline to dash
+						String iriString, iriPrefixString = "";
+						
+						if (conceptTransform.getNamespaceTypeString().equals(Variables.CUSTOM)) {
+							iriPrefixString = Methods.createSlashTypeString(conceptTransform.getNamespaceValueString());
+						} else {
+							if (conceptTransform.getRangeString().equals("")) {
+								iriPrefixString = Methods.createSlashTypeString(conceptTransform.getTargetType());
+							} else {
+								iriPrefixString = conceptTransform.getRangeString();
+							}
+						}
+						
+						//iriString = iriPrefixString + "#" + iriValue;
+						iriString = iriPrefixString  + iriValue;
 
 						/*
-						 * String rangeValueString =
-						 * iriGenerator.getRangeValue(conceptTransform.getTargetType(),
-						 * targetTBoxModel); if (rangeValueString == null) { iriString =
-						 * conceptTransform.getTargetType() + "#" + iriValue; } else { iriString =
-						 * rangeValueString + "#" + iriValue; }
-						 */
-						
-						if (conceptTransform.getRangeString().equals("")) {
-							iriString = Methods.createSlashTypeString(conceptTransform.getTargetType()) + "#" + iriValue;
-						} else {
-							iriString = conceptTransform.getRangeString() + "#" + iriValue;
-						}
-
-//						System.out.println(iriString);
-
 						UrlValidator urlValidator = new UrlValidator();
 						if (!urlValidator.isValid(iriString)) {
 							iriString = Methods.validateIRI(iriString);
 							System.out.println("No valid URL for " + line);
 						}
-
+*/
+						
 						Resource resource = model.createResource(iriString);
-
-						Property memberProperty = model.createProperty("http://purl.org/linked-data/cube#dataSet");
-						resource.addProperty(memberProperty, model.createResource(conceptTransform.getTargetType()));
-
-						Resource typeResource = model.createResource("http://purl.org/linked-data/cube#Observation");
-						resource.addProperty(RDF.type, typeResource);
+						resource.addProperty(RDF.type, model.createResource(conceptTransform.getTargetType()));
 
 						for (int i = 0; i < columnNames.size(); i++) {
 							String value = columnValues.get(i);
@@ -309,39 +341,37 @@ public class FactEntryGeneration {
 							if (!value.equals("NA")) {
 								if (targetPropertyMap.containsKey(i)) {
 									String propertyString = targetPropertyMap.get(i);
-
-									/*
-									 * String rangeValue = iriGenerator.getRangeValue(propertyString,
-									 * targetTBoxModel);
-									 * 
-									 * Property property = model.createProperty(propertyString);
-									 * 
-									 * if (rangeValue.contains("http://www.w3.org/2001/XMLSchema#")) { Literal
-									 * literal = model.createLiteral(value); resource.addLiteral(property, literal);
-									 * } else { value = Methods.formatURL(value); String propertyValueIRI =
-									 * rangeValue + "#" + value; resource.addProperty(property,
-									 * model.createResource(propertyValueIRI)); }
-									 */
-									
-									String rangeValue = "";
-									
-									if (rangeMap.containsKey(propertyString)) {
-										rangeValue = rangeMap.get(propertyString);
-									} else {
-										rangeValue = iriGenerator.getRangeValue(propertyString, targetTBoxModel);
-										rangeMap.put(propertyString, rangeValue);
-									}
+									MapperTransform mapperTransform = mapperTransformMap.get(i);
 
 									Property property = model.createProperty(propertyString);
-
-									if (rangeValue.contains("http://www.w3.org/2001/XMLSchema#")) {
-										Literal literal = model.createLiteral(value);
-										resource.addLiteral(property, literal);
-									} else {
-										value = Methods.formatURL(value);
-										
-										String propertyValueIRI = rangeValue + "#" + value;
+									
+//									System.out.println("Printing mapper transform");
+//									System.out.println(mapperTransform.getNamespaceTypeString());
+//									System.out.println(mapperTransform.getNamespaceValueString());
+									
+									if (mapperTransform.getNamespaceTypeString().equals(Variables.CUSTOM)) {
+										//String propertyValueIRI = mapperTransform.getNamespaceValueString() + "#" + value;
+										String propertyValueIRI = mapperTransform.getNamespaceValueString() + value;
 										resource.addProperty(property, model.createResource(propertyValueIRI));
+									} else {
+										String rangeValue;
+
+										if (rangeMap.containsKey(propertyString)) {
+											rangeValue = rangeMap.get(propertyString);
+										} else {
+											rangeValue = iriGenerator.getRangeValue(propertyString, targetTBoxModel);
+											rangeMap.put(propertyString, rangeValue);
+										}
+
+										if (rangeValue.contains("http://www.w3.org/2001/XMLSchema#")) {
+											Literal literal = model.createLiteral(value);
+											resource.addLiteral(property, literal);
+										} else {
+											value = Methods.formatURL(value);
+											//String propertyValueIRI = rangeValue + "#" + value;
+											String propertyValueIRI = rangeValue + value;
+											resource.addProperty(property, model.createResource(propertyValueIRI));
+										}
 									}
 								}
 							}
@@ -349,25 +379,13 @@ public class FactEntryGeneration {
 
 						count++;
 					} else {
-						// System.out.println("Skipping Line: " + count + " - " + line);
-						// System.out.println("Found Columns: " + columnValues.size());
-
 						faultList.add(count);
 					}
-
-					/*
-					 * if (Methods.checkToSaveModel(count, numOfFiles, model)) { model =
-					 * ModelFactory.createDefaultModel(); numOfFiles++; }
-					 */
 
 					if (Methods.checkToSaveModel(count, targetABoxFile, model, "csv")) {
 						model = ModelFactory.createDefaultModel();
 					}
 				}
-
-				/*
-				 * if (model.size() > 0) { Methods.checkToSaveModel(numOfFiles, model); }
-				 */
 
 				if (model.size() > 0) {
 					Methods.checkToSaveModel(targetABoxFile, model);
@@ -376,13 +394,16 @@ public class FactEntryGeneration {
 				System.out.println("Total count: " + count);
 
 				System.out.println("Total line skipped: " + faultList.size());
-				// return Methods.mergeAllTempFiles(numOfFiles, targetABoxFile);
-
-				// These two lines shouldn't be in fact entry as model can be very large
-//				Model finalModel = Methods.readModelFromPath(targetABoxFile);
-//				return Methods.saveModel(finalModel, targetABoxFile);
 				
-				return "Success.\nFile Saved to: " + targetABoxFile;
+				Methods.checkOrCreateFile(targetABoxFile);
+
+				Model finalModel = Methods.readModelFromPath(targetABoxFile);
+
+				if (finalModel != null) {
+					return Methods.saveModel(finalModel, targetABoxFile);
+				} else {
+					return "Failed to write the full model.";
+				}
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -400,8 +421,8 @@ public class FactEntryGeneration {
 		return "";
 
 	}
-	
-	public String generateFactEntryFromLargeRDF(String sourceFile, String mapFile, String targetTBoxFile,
+
+	public String generateInstanceEntryFromLargeRDF(String sourceFile, String mapFile, String targetTBoxFile,
 			String targetABoxFile, String provGraph) {
 //		System.out.println(sourceFile);
 //		System.out.println(mapFile);
@@ -455,11 +476,14 @@ public class FactEntryGeneration {
 		String sparql = "PREFIX map: <http://www.map.org/example#>\r\n"
 				+ "PREFIX	qb:	<http://purl.org/linked-data/cube#>\r\n"
 				+ "PREFIX   qb4o:   <http://purl.org/qb4olap/cubes#>\r\n"
-				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n" + "SELECT * WHERE { \r\n"
-				+ "?concept a map:ConceptMapper. \r\n" + "?concept map:sourceConcept ?stype. \r\n"
-				+ "?concept map:targetConcept ?ttype. \r\n" + "?concept map:iriValueType ?iritype. \r\n"
+				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n"
+				+ "SELECT * WHERE { \r\n"
+				+ "?concept a map:ConceptMapper. \r\n"
+				+ "?concept map:sourceConcept ?stype. \r\n"
+				+ "?concept map:targetConcept ?ttype. \r\n"
+				+ "?concept map:iriValueType ?iritype. \r\n"
 				+ "?concept map:iriValue ?irivalue. \r\n"
-				+ "?ttype a qb:DataSet. \r\n"
+//				+ "?ttype a qb4o:LevelProperty. \r\n"
 				+ "OPTIONAL {?ttype rdfs:range ?range.}"
 				+ "?mapper a map:PropertyMapper. \r\n"
 				+ "?mapper map:ConceptMapper ?concept. \r\n"
@@ -470,7 +494,7 @@ public class FactEntryGeneration {
 //		Methods.print(resultSet);
 		completeModel.close();
 
-		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<String, ConceptTransform>();
+		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<>();
 
 		while (resultSet.hasNext()) {
 			QuerySolution querySolution = resultSet.next();
@@ -489,7 +513,7 @@ public class FactEntryGeneration {
 //			String mapper = querySolution.get("mapper").toString();
 			String sourceProperty = querySolution.get("sprop").toString();
 			String targetProperty = querySolution.get("tprop").toString();
-			
+
 			if (concept.contains(sourceName)) {
 				if (conceptMap.containsKey(concept)) {
 					ConceptTransform conceptTransform = conceptMap.get(concept);
@@ -509,42 +533,45 @@ public class FactEntryGeneration {
 			}
 		}
 		
+		// if you switch back to turtle from nt
+		// change the ending loop condition to n + 1
 		for (int i = 1; i <= numOfFiles; i++) {
 			String tinySourcePath = Variables.MODEL_DIR + "\\model" + i + ".nt";
 			
-			System.out.println("Tiny Path: " + tinySourcePath);
+//			prefixExtraction.extractPrefix(tinySourcePath);
 			
 			try {
 				//			System.out.println("Starting: " + tinySourcePath);
 				Model model = ModelFactory.createDefaultModel();
 				Model sourceModel = ModelFactory.createDefaultModel();
 				sourceModel.read(tinySourcePath);
-				model = extractFactEntryData(targetABoxFile, targetTBoxModel, provModel, conceptMap, model, sourceModel);
+				model = extractInstanceEntryData(targetABoxFile, sourceModel, targetTBoxModel, provModel, conceptMap,
+						model);
+				
 				if (model.size() > 0) {
 					Methods.checkToSaveModel(targetABoxFile, model);
 				}
 				Methods.saveModel(provModel, provGraph);
 			} catch (Exception e) {
 				// TODO: handle exception
-				System.out.println(e.getMessage());
+				System.out.println("Error: " + e.getMessage());
 				System.out.println("This file has some errors: " + tinySourcePath);
 			}
 		}
 		
-//		try {
-//			Model finalModel = Methods.readModelFromPath(targetABoxFile);
-//			String resultFile = Methods.saveModel(finalModel, targetABoxFile);
-//			System.out.println(resultFile);
-//		} catch (Exception e) {
-//			// TODO: handle exception
-//			System.out.println(e.getMessage());
-//		}
-		return "Success.\nFile Saved: " + targetABoxFile;
+		Methods.checkOrCreateFile(targetABoxFile);
+
+		Model finalModel = Methods.readModelFromPath(targetABoxFile);
+
+		if (finalModel != null) {
+			return Methods.saveModel(finalModel, targetABoxFile);
+		} else {
+			return "Failed to write the full model.";
+		}
 	}
 	
-	public String generateFactEntryFromTinyRDF(String sourceFile, String mapFile, String targetTBoxFile,
+	public String generateInstanceEntryFromTinyRDF(String sourceFile, String mapFile, String targetTBoxFile,
 			String targetABoxFile, String provGraph) {
-		
 		Model provModel = ModelFactory.createDefaultModel();
 		try {
 			provModel.read(provGraph);
@@ -580,27 +607,32 @@ public class FactEntryGeneration {
 		prefixExtraction.extractPrefix(sourceFile);
 		
 		String sourceName = Methods.getFileName(sourceFile);
-//		System.out.println(sourceName);
+		
+//		System.out.println("Source: " + sourceName);
 
 		String sparql = "PREFIX map: <http://www.map.org/example#>\r\n"
 				+ "PREFIX	qb:	<http://purl.org/linked-data/cube#>\r\n"
 				+ "PREFIX   qb4o:   <http://purl.org/qb4olap/cubes#>\r\n"
-				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n" + "SELECT * WHERE { \r\n"
-				+ "?concept a map:ConceptMapper. \r\n" + "?concept map:sourceConcept ?stype. \r\n"
-				+ "?concept map:targetConcept ?ttype. \r\n" + "?concept map:iriValueType ?iritype. \r\n"
+				+ "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\r\n" 
+				+ "SELECT * WHERE { \r\n"
+				+ "?concept a map:ConceptMapper. \r\n"
+				+ "?concept map:sourceConcept ?stype. \r\n"
+				+ "?concept map:targetConcept ?ttype. \r\n"
+				+ "?concept map:iriValueType ?iritype. \r\n"
 				+ "?concept map:iriValue ?irivalue. \r\n"
-				+ "?ttype a qb:DataSet. \r\n"
+//				+ "?ttype a qb4o:LevelProperty. \r\n"
 				+ "OPTIONAL {?ttype rdfs:range ?range.}"
 				+ "?mapper a map:PropertyMapper. \r\n"
 				+ "?mapper map:ConceptMapper ?concept. \r\n"
 				+ "?mapper map:sourceProperty ?sprop. \r\n"
-				+ "?mapper map:targetProperty ?tprop. \r\n" + "}";
+				+ "?mapper map:targetProperty ?tprop. \r\n"
+				+ "}";
 
 		ResultSet resultSet = Methods.executeQuery(completeModel, sparql);
 //		Methods.print(resultSet);
 		completeModel.close();
 
-		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<String, ConceptTransform>();
+		LinkedHashMap<String, ConceptTransform> conceptMap = new LinkedHashMap<>();
 
 		while (resultSet.hasNext()) {
 			QuerySolution querySolution = resultSet.next();
@@ -619,7 +651,7 @@ public class FactEntryGeneration {
 //			String mapper = querySolution.get("mapper").toString();
 			String sourceProperty = querySolution.get("sprop").toString();
 			String targetProperty = querySolution.get("tprop").toString();
-
+			
 			if (concept.contains(sourceName)) {
 				if (conceptMap.containsKey(concept)) {
 					ConceptTransform conceptTransform = conceptMap.get(concept);
@@ -642,16 +674,17 @@ public class FactEntryGeneration {
 //		System.out.println("Size: " + conceptMap.size());
 
 		Model model = ModelFactory.createDefaultModel();
-		Model sourceModel = Methods.readModelFromPath(sourceFile);
-		
-//		System.out.println("We are here");
 
-		model = extractFactEntryData(targetABoxFile, targetTBoxModel, provModel, conceptMap, model, sourceModel);
+		Model sourceModel = ModelFactory.createDefaultModel();
+		sourceModel.read(sourceFile);
 		
+
+		model = extractInstanceEntryData(targetABoxFile, sourceModel, targetTBoxModel, provModel, conceptMap, model);
+
 		if (model.size() > 0) {
 			Methods.checkToSaveModel(targetABoxFile, model);
 		}
-
+		
 		Methods.saveModel(provModel, provGraph);
 		
 		Methods.checkOrCreateFile(targetABoxFile);
@@ -665,19 +698,21 @@ public class FactEntryGeneration {
 		}
 	}
 
-	private Model extractFactEntryData(String targetABoxFile, Model targetTBoxModel, Model provModel,
-			LinkedHashMap<String, ConceptTransform> conceptMap, Model model, Model sourceModel) {
+	private Model extractInstanceEntryData(String targetABoxFile, Model sourceModel, Model targetTBoxModel,
+			Model provModel, LinkedHashMap<String, ConceptTransform> conceptMap, Model model) {
 		for (String concept : conceptMap.keySet()) {
-			LinkedHashMap<String, String> rangeMap = new LinkedHashMap<String, String>();
+//				System.out.println(concept);
+			
+			LinkedHashMap<String, String> rangeMap = new LinkedHashMap<>();
 			ConceptTransform conceptTransform = conceptMap.get(concept);
 
 			String sparqlString = "SELECT DISTINCT ?s " + "WHERE " + "{" + "?s a <" + conceptTransform.getSourceType()
 					+ ">." + "?s ?p ?o." + "}";
+			
+//				System.out.println(sparqlString);
 
 			ResultSet set = Methods.executeQuery(sourceModel, sparqlString);
-			
-//			System.out.println(sparqlString);
-//			Methods.print(set);
+//				Methods.print(set);
 
 			int count = 0;
 			while (set.hasNext()) {
@@ -701,6 +736,7 @@ public class FactEntryGeneration {
 						stringBuilder.append(statement.getObject());
 					}
 					stmtIterator.close();
+
 					iriValue = stringBuilder.toString();
 				} else if (conceptTransform.getIriValueType().contains("Expression")) {
 					String expressionString = conceptTransform.getIriValue();
@@ -715,16 +751,12 @@ public class FactEntryGeneration {
 					stmtIterator.close();
 					
 					EquationHandler equationHandler = new EquationHandler(prefixExtraction, expressionString, valueMap);
-					
 					Object valueObject = equationHandler.handleExpression();
-//					System.out.println("Returned value: " + valueObject);
 					
 					iriValue = valueObject.toString();
 				}
 
 				iriValue = Methods.formatURL(iriValue);
-
-//				System.out.println(iriValue);
 				String iriString = "";
 
 				if (conceptTransform.getRangeString().equals("")) {
@@ -733,8 +765,6 @@ public class FactEntryGeneration {
 					iriString = conceptTransform.getRangeString() + "#" + iriValue;
 				}
 
-//				System.out.println(iriString);
-
 				UrlValidator urlValidator = new UrlValidator();
 				if (!urlValidator.isValid(iriString)) {
 					iriString = Methods.validateIRI(iriString);
@@ -742,27 +772,25 @@ public class FactEntryGeneration {
 				}
 
 				Resource targetResource = model.createResource(iriString);
-				
-//				Resource provResource = provModel.createResource(subjectString);
-//				Property owlProperty = provModel.createProperty("http://www.w3.org/2002/07/owl#sameAs");
-//				provResource.addProperty(owlProperty, provModel.createResource(iriString));
-				
-				// System.out.println(conceptTransform.getPropertyMap().size());
+
+				Resource provResource = provModel.createResource(subjectString);
+				Property owlProperty = provModel.createProperty("http://www.w3.org/2002/07/owl#sameAs");
+				provResource.addProperty(owlProperty, provModel.createResource(iriString));
+
+//					System.out.println(conceptTransform.getPropertyMap().size());
 				for (String sourcePropertyString : conceptTransform.getPropertyMap().keySet()) {
 					Property sourceProperty = sourceModel.createProperty(sourcePropertyString);
 					String targetPropertyString = conceptTransform.getPropertyMap().get(sourcePropertyString);
 					Property targetProperty = model.createProperty(targetPropertyString);
-					
+
 					StmtIterator stmtIterator = sourceResource.listProperties(sourceProperty);
 
 					while (stmtIterator.hasNext()) {
 						Statement statement = stmtIterator.nextStatement();
-						
-//						System.out.println(statement);
 
 						// targetResource.addProperty(targetProperty, statement.getObject());
 
-						String rangeValue = "";
+						String rangeValue;
 
 						if (rangeMap.containsKey(targetPropertyString)) {
 							rangeValue = rangeMap.get(targetPropertyString);
@@ -775,35 +803,16 @@ public class FactEntryGeneration {
 							targetResource.addProperty(targetProperty, statement.getObject());
 						} else {
 							String value = Methods.formatURL(statement.getObject().toString());
-							
-							String provIriString = getProvIRI(value, provModel);
-							
-//							System.out.println("Prov IRI: " + provIriString);
-							
-							if (provIriString.length() == 0) {
-								String propertyValueIRI = rangeValue + "#" + value;
-								targetResource.addProperty(targetProperty, model.createResource(propertyValueIRI));
-								
-//								System.out.println("Added target");
-							} else {
-								targetResource.addProperty(targetProperty, model.createResource(provIriString));
-								
-//								System.out.println("Added prov");
-							}
+							String propertyValueIRI = rangeValue + "#" + value;
+							targetResource.addProperty(targetProperty, model.createResource(propertyValueIRI));
 						}
 					}
-					
 					stmtIterator.close();
-					
-					Property memberProperty = model.createProperty("http://purl.org/linked-data/cube#dataSet");
-					targetResource.addProperty(memberProperty, model.createResource(conceptTransform.getTargetType()));
-
-					Resource typeResource = model.createResource("http://purl.org/linked-data/cube#Observation");
-					targetResource.addProperty(RDF.type, typeResource);
+					targetResource.addProperty(RDF.type, model.createResource(conceptTransform.getTargetType()));
 				}
-				
+
 				count++;
-				
+
 				if (Methods.checkToSaveModel(count, targetABoxFile, model, "rdf")) {
 					model = ModelFactory.createDefaultModel();
 				}
@@ -811,38 +820,17 @@ public class FactEntryGeneration {
 		}
 		return model;
 	}
-
-	private String getProvIRI(String value, Model provModel) {
-		// TODO Auto-generated method stub
-		String iriString = "";
-		
-		String sparql = "PREFIX owl: <http://www.w3.org/2002/07/owl#> "
-				+ "SELECT ?s ?t WHERE {"
-				+ "?s owl:sameAs ?t."
-				+ "FILTER regex(str(?s), '" + value + "').}";
-		
-		ResultSet resultSet = Methods.executeQuery(provModel, sparql);
-//		Methods.print(resultSet);
-		
-		while (resultSet.hasNext()) {
-			QuerySolution querySolution = resultSet.next();
-			iriString = querySolution.get("t").toString();
-			
-			break;
-		}
-		
-		return iriString;
-	}
 	
-	public String generateFactEntryFromRDF(String sourceFile, String mapFile, String targetTBoxFile,
+	public String generateInstanceEntryFromRDF(String sourceFile, String mapFile, String targetTBoxFile,
 			String targetABoxFile, String provGraph) {
 		
 		Methods.checkOrCreateFile(provGraph);
 		
 		if (Methods.isJenaAccessible(sourceFile)) {
-			return generateFactEntryFromTinyRDF(sourceFile, mapFile, targetTBoxFile, targetABoxFile, provGraph);
+			return generateInstanceEntryFromTinyRDF(sourceFile, mapFile, targetTBoxFile, targetABoxFile, provGraph);
 		} else {
-			return generateFactEntryFromLargeRDF(sourceFile, mapFile, targetTBoxFile, targetABoxFile, provGraph);
+			return generateInstanceEntryFromLargeRDF(sourceFile, mapFile, targetTBoxFile, targetABoxFile, provGraph);
 		}
 	}
 }
+

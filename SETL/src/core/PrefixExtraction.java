@@ -100,12 +100,21 @@ public class PrefixExtraction {
 	}
 
 	public String assignPrefix(String iri) {
-//		System.out.println("IRI: " + iri);
-		
 		if (iri.contains("#")) {
 			String[] segments = iri.split("#");
 			if (segments.length == 2) {
 				String firstSegment = segments[0].trim() + "/";
+
+				for (Map.Entry<String, String> map : prefixMap.entrySet()) {
+					String key = map.getKey();
+					String value = map.getValue();
+
+					if (firstSegment.equals(value.trim())) {
+						return key + segments[1];
+					}
+				}
+				
+				firstSegment = segments[0].trim() + "#";
 
 				for (Map.Entry<String, String> map : prefixMap.entrySet()) {
 					String key = map.getKey();
@@ -129,6 +138,22 @@ public class PrefixExtraction {
 				firstSegment = iri.replace(lastSegment, "");
 			}
 
+			for (Map.Entry<String, String> map : prefixMap.entrySet()) {
+				String key = map.getKey();
+				String value = map.getValue();
+
+				if (firstSegment.equals(value.trim())) {
+					return key + lastSegment;
+				}
+			}
+			
+			String slashSegment = "/" + lastSegment;
+			if (iri.endsWith(slashSegment)) {
+				firstSegment = iri.replace(slashSegment, "");
+			}
+			
+			firstSegment = firstSegment + "#";
+			
 			for (Map.Entry<String, String> map : prefixMap.entrySet()) {
 				String key = map.getKey();
 				String value = map.getValue();

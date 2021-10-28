@@ -23,13 +23,23 @@ public class CSVExtraction {
 		// isKey will be used to check if any column has space
 		// so that it can be replaced.
 		
+		if (line.endsWith("\\s")) {
+			line = line.substring(0,  line.length() - 2);
+		}
+		
+//		System.out.println("Line: " + line);
+		
 		ArrayList<String> nameList = new ArrayList<>();
 		String[] parts = line.split(delimiter);
+		
+//		System.out.println("Parts: " + parts.length);
 
 		ArrayList<String> tempList = new ArrayList<>();
 		
 		for (String part : parts) {
 			part = Methods.encodeString(part);
+			
+//			System.out.println(part);
 			
 			if (part.length() == 1 && part.equals("\"")) {
 				String nameString = getTempString(delimiter, tempList, part);
