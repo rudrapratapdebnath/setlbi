@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.apache.jena.rdf.model.Model;
 
+import core.OnDemandETL;
 import core.PrefixExtraction;
 import helper.Methods;
 import model.ConceptTransform;
@@ -647,6 +648,9 @@ public class Definition {
 
 	public Object[][] runSparqlQuery(String queryString) {
 		// TODO Auto-generated method stub
+		if (selectedColumns == null) {
+			selectedColumns = extraction.extractKeywords(queryString);
+		}
 		return extraction.runSparqlQuery(endpointString, queryString, selectedColumns);
 	}
 
