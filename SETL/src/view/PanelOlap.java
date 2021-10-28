@@ -45,6 +45,8 @@ import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
+import org.apache.jena.query.ResultSet;
+
 import controller.Definition;
 import helper.AccessVariables;
 import helper.CheckListRenderer;
@@ -91,6 +93,10 @@ public class PanelOlap extends JPanel {
     private EnabledListener enabledListener = new EnabledListener();
     private DisabledListener disabledListener = new DisabledListener();
     private ArrayList<String> bannedLevels = new ArrayList<>();
+    
+    String tboxPath = "C:\\Users\\Amrit\\Documents\\1\\thesis\\bd_tbox.ttl";
+    String aboxPath = "C:\\Users\\Amrit\\Documents\\1\\thesis\\aboxes\\Census_C01.ttl";
+    String sparqlEndPoint = "";
 
 	/**
 	 * Create the panel.
@@ -170,7 +176,7 @@ public class PanelOlap extends JPanel {
 				lblTbox.setFont(new Font("Tahoma", Font.BOLD, 12));
 				panelBoth.add(lblTbox, "cell 0 0,alignx trailing");
 
-				JTextField textFieldTBox = new JTextField("C:\\Users\\Amrit\\Documents\\New_ODE_ETL\\bd_tbox.ttl");
+				JTextField textFieldTBox = new JTextField(tboxPath);
 				textFieldTBox.setMargin(new Insets(5, 5, 5, 5));
 				textFieldTBox.setFont(new Font("Tahoma", Font.BOLD, 12));
 				panelBoth.add(textFieldTBox, "flowx,cell 1 0,growx");
@@ -193,7 +199,7 @@ public class PanelOlap extends JPanel {
 				lblAbox.setFont(new Font("Tahoma", Font.BOLD, 12));
 				panelBoth.add(lblAbox, "cell 0 1,alignx trailing");
 
-				JTextField textFieldABox = new JTextField("C:\\Users\\Amrit\\Documents\\Data\\C15\\Census_C15_TargetABox.ttl");
+				JTextField textFieldABox = new JTextField(aboxPath);
 				textFieldABox.setMargin(new Insets(5, 5, 5, 5));
 				textFieldABox.setFont(new Font("Tahoma", Font.BOLD, 12));
 				panelBoth.add(textFieldABox, "flowx,cell 1 1,growx");
@@ -304,7 +310,7 @@ public class PanelOlap extends JPanel {
 				lblEndpoint.setFont(new Font("Tahoma", Font.BOLD, 12));
 				panelInput.add(lblEndpoint, "cell 0 0,alignx trailing");
 
-				JTextField textFieldEndPoint = new JTextField(AccessVariables.ENDPOINT_TWO);
+				JTextField textFieldEndPoint = new JTextField(AccessVariables.ENDPOINT_ONE);
 				textFieldEndPoint.setMargin(new Insets(5, 5, 5, 5));
 				textFieldEndPoint.setFont(new Font("Tahoma", Font.BOLD, 12));
 				panelInput.add(textFieldEndPoint, "cell 1 0,growx");
@@ -993,7 +999,13 @@ public class PanelOlap extends JPanel {
 		JButton btnRunQuery_1 = new JButton("Run Query");
 		btnRunQuery_1.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				/*Object[][] valueArray = definition.runSparqlQuery(textAreaQuery.getText().toString().trim());
+				Long totalDifference = 0L;
+				Long startTimeLong = methods.getTime();
+				
+				Object[][] valueArray = definition.runSparqlQuery(textAreaQuery.getText().toString().trim());
+				
+				Long endTimeLong = methods.getTime();
+				totalDifference += endTimeLong - startTimeLong;
 
 				JScrollPane scrollPaneTable = new JScrollPane();
 				scrollPaneTable.setPreferredSize(new Dimension(1200, 600));
@@ -1004,9 +1016,13 @@ public class PanelOlap extends JPanel {
 				scrollPaneTable.setViewportView(tableResult);
 
 				JOptionPane.showMessageDialog(null, scrollPaneTable, "OLAP Result",
-						JOptionPane.INFORMATION_MESSAGE);*/
+						JOptionPane.INFORMATION_MESSAGE);
 				
-				definition.runSparqlQuery(textAreaQuery.getText().toString().trim(), true);
+//				definition.runSparqlQuery(textAreaQuery.getText().toString().trim(), true);
+				
+				String timeStringOne = "Required Time for processing: "
+						+ methods.getTimeInSeconds(totalDifference);
+				System.out.println(timeStringOne);
 			}
 		});
 		btnRunQuery_1.setFont(new Font("Tahoma", Font.BOLD, 12));

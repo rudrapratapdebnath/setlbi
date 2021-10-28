@@ -2196,7 +2196,7 @@ public class PanelETL extends JPanel {
 		}
 
 		public Operation addNewConceptOperation(ConceptTransform conceptTransform, int xCount,
-				int yCount, String mapFile, String targetTBoxFile) {
+				int yCount, String mapFilePath, String targetTBoxFile) {
 			// TODO Auto-generated method stub
 			Operation operation = new Operation(conceptTransform.getOperationName(), xCount, yCount);
 			operation.setInputStatus(true);
@@ -2204,23 +2204,42 @@ public class PanelETL extends JPanel {
 			String sourceFile = conceptTransform.getSourceABoxLocationString();
 			String targetFile = conceptTransform.getTargetFileLocation();
 			
+			String mapFile = "";
+			
+			if (conceptTransform.getTempInputMapFilePath().isEmpty()) {
+				mapFile = mapFilePath;
+			} else {
+				mapFile = conceptTransform.getTempInputMapFilePath();
+			}
+			
 			if (operation.getOperationName().equals(TransformationOnLiteral)) {
 				ETLExpressionHandler etlExpressionHandler = new ETLExpressionHandler();
+				
 				etlExpressionHandler.setMappingFile(mapFile);
 				etlExpressionHandler.setSourceABoxFile(sourceFile);
 				etlExpressionHandler.setResultFile(targetFile);
+				etlExpressionHandler.setOutputMap(conceptTransform.getTempOutputMapFilePath());
+				etlExpressionHandler.setConceptString(conceptTransform.getConcept());
 				
 				operation.setEtlOperation(etlExpressionHandler);
 			} else if (operation.getOperationName().equals(INSTANCE_ENTRY_GENERATOR)) {
 				ETLInstanceEntryGenerator entryGenerator = new ETLInstanceEntryGenerator();
 				entryGenerator.setSourceABoxFile(sourceFile);
 				entryGenerator.setMappingFile(mapFile);
+				entryGenerator.setConceptString(conceptTransform.getConcept());
 				
 				String provFile = Variables.TEMP_DIR + "prov.ttl";
 				entryGenerator.setProvFile(provFile);
 				
 				entryGenerator.setTargetTBoxFile(targetTBoxFile);
 				entryGenerator.setTargetABoxFile(targetFile);
+				operation.setEtlOperation(entryGenerator);
+			} else if (operation.getOperationName().equals(MULTIPLE_TRANFORM)) {
+				ETLMultipleTransform entryGenerator = new ETLMultipleTransform();
+				entryGenerator.setFirstSourcePath(sourceFile);
+				entryGenerator.setMapPath(mapFile);
+				entryGenerator.setSecondSourcePath(targetFile);
+				entryGenerator.setTargetPath(targetFile);
 				operation.setEtlOperation(entryGenerator);
 			} else if (operation.getOperationName().equals(LEVEL_ENTRY_GENERATOR)) {
 				ETLLevelEntryGenerator entryGenerator = new ETLLevelEntryGenerator();

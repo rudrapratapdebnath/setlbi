@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.ButtonGroup;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -26,6 +27,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
@@ -46,6 +48,7 @@ import controller.MappingDefinition;
 import controller.TBoxDefinition;
 import helper.FileMethods;
 import helper.Methods;
+import helper.Variables;
 import net.miginfocom.swing.MigLayout;
 import queries.MappingExtraction;
 import queries.TBoxExtraction;
@@ -93,6 +96,8 @@ public class PanelMapSource2TargetNew extends JPanel {
 	private JTextField textFieldTargetProperty;
 	private JTextField textFieldTargetSparql;
 	private JTextField textFieldTargetExpression;
+	private JTextField textFieldNamespace;
+	private JTextField textFieldNamespaceProperty;
 	private JPanel panelUpdate;
 	private JTextArea textAreaKeyAttribute;
 	private JTextField textFieldOperation;
@@ -322,7 +327,7 @@ public class PanelMapSource2TargetNew extends JPanel {
 		
 		panelOperationRecord = new JPanel();
 		panelOperationRecord.setBackground(Color.WHITE);
-		panelOperationRecord.setLayout(new MigLayout("", "[][grow]", "[][][grow]"));
+		panelOperationRecord.setLayout(new MigLayout("", "[][grow]", "[][][][grow]"));
 		
 		panelHead = new JPanel();
 		panelHead.setBackground(Color.WHITE);
@@ -1086,18 +1091,61 @@ public class PanelMapSource2TargetNew extends JPanel {
 		comboBoxConceptMapper.setFont(new Font("Tahoma", Font.BOLD, 12));
 		panelOperationRecord.add(comboBoxConceptMapper, "cell 1 0,growx");
 		
+		JPanel panelNamespace = new JPanel();
+		panelNamespace.setBackground(Color.WHITE);
+		panelOperationRecord.add(panelNamespace, "cell 0 1 2 1,grow");
+		panelNamespace.setLayout(new MigLayout("", "[][][][grow]", "[grow][]"));
+		
+		JLabel lblNamespace = new JLabel("Namespace: ");
+		lblNamespace.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelNamespace.add(lblNamespace, "cell 0 0");
+		
+		JRadioButton rdbtnDefault = new JRadioButton("Default");
+		rdbtnDefault.setFont(new Font("Tahoma", Font.BOLD, 12));
+		rdbtnDefault.setSelected(true);
+		panelNamespace.add(rdbtnDefault, "cell 1 0");
+		
+		JRadioButton rdbtnCustom = new JRadioButton("Custom");
+		rdbtnCustom.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelNamespace.add(rdbtnCustom, "cell 2 0");
+		
+		ButtonGroup group = new ButtonGroup();
+	    group.add(rdbtnDefault);
+	    group.add(rdbtnCustom);
+	    
+
+		rdbtnDefault.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+//				rdbtnCustom.setEnabled(false);
+				textFieldNamespaceProperty.setVisible(false);
+			}
+		});
+		
+
+		rdbtnCustom.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+//				rdbtnDefault.setEnabled(false);
+				textFieldNamespaceProperty.setVisible(true);			}
+		});
+		
+		textFieldNamespaceProperty = new JTextField();
+		textFieldNamespaceProperty.setVisible(false);
+		textFieldNamespaceProperty.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelNamespace.add(textFieldNamespaceProperty, "cell 3 0,growx");
+		textFieldNamespaceProperty.setColumns(10);
+		
 		JLabel lblTargetProperty = new JLabel("Target Property:");
 		lblTargetProperty.setFont(new Font("Tahoma", Font.BOLD, 12));
-		panelOperationRecord.add(lblTargetProperty, "cell 0 1,alignx trailing");
+		panelOperationRecord.add(lblTargetProperty, "cell 0 2,alignx trailing");
 		
 		// textFieldTargetProperty = new JTextField();
 		textFieldTargetProperty.setFont(new Font("Tahoma", Font.BOLD, 12));
-		panelOperationRecord.add(textFieldTargetProperty, "cell 1 1,growx");
+		panelOperationRecord.add(textFieldTargetProperty, "cell 1 2,growx");
 		textFieldTargetProperty.setColumns(10);
 		
 		JPanel panelValueSelectionType = new JPanel();
 		panelValueSelectionType.setBackground(Color.WHITE);
-		panelOperationRecord.add(panelValueSelectionType, "cell 0 2 2 1,grow");
+		panelOperationRecord.add(panelValueSelectionType, "cell 0 3 2 1,grow");
 		panelValueSelectionType.setLayout(new MigLayout("", "[][grow]", "[][]"));
 		
 		JLabel lblTargetPropertyValue = new JLabel("Target Property Value Selection Type:");
@@ -1155,20 +1203,31 @@ public class PanelMapSource2TargetNew extends JPanel {
 				String selectionType = comboBoxSelectionType.getSelectedItem().toString();
 				String sourceProperty = "";
 				
+				String namespaceString = "";
+				String customNamespaceString = "";
+				
+				if (rdbtnDefault.isSelected()) {
+					namespaceString = Variables.DEFAULT;
+				} else {
+					namespaceString = Variables.CUSTOM;
+					customNamespaceString = textFieldNamespaceProperty.getText().toString().trim();
+				}
+				
 				if (selectionType.equals("Source Property")) {
 					sourceProperty = textFieldSourceProperty.getText().toString().trim();
 				} else if (selectionType.equals("Source Expression")) {
 					sourceProperty = textAreaSourceExpression.getText().toString().trim();
 				}
 				
-				if (targetProperty.length() == 0 || sourceProperty.length() == 0 || conceptMapper.length() == 0) {
+				if (targetProperty.length() == 0 || sourceProperty.length() == 0 || conceptMapper.length() == 0
+						 || (namespaceString.equals(Variables.CUSTOM) && customNamespaceString.length() == 0)) {
 					JOptionPane.showMessageDialog(null, "Check all inputs", "Error Message", JOptionPane.ERROR_MESSAGE);
 				} else {
 					if (recordExtraction == null) {
 						createNewFileIfNotExists();
 					}
 					
-					recordExtraction.addNewRecord(conceptMapper, targetProperty, sourceProperty, selectionType);
+					recordExtraction.addNewRecord(conceptMapper, targetProperty, sourceProperty, selectionType, namespaceString, customNamespaceString);
 					recordExtraction.reloadAll();
 					refreshMappingDefinition();
 					
@@ -1203,7 +1262,7 @@ public class PanelMapSource2TargetNew extends JPanel {
 		panelConceptMapping.setBorder(new TitledBorder(null, "Concept Mapping", TitledBorder.CENTER, TitledBorder.TOP, null, Color.BLACK));
 		panelConceptMapping.setBackground(Color.WHITE);
 		panelHead.add(panelConceptMapping, "cell 0 1 2 1,grow");
-		panelConceptMapping.setLayout(new MigLayout("", "[][grow][]", "[][][][]"));
+		panelConceptMapping.setLayout(new MigLayout("", "[][grow][]", "[][][][][]"));
 		
 		JLabel lblSourceConcept = new JLabel("Source Concept:");
 		lblSourceConcept.setFont(new Font("Tahoma", Font.BOLD, 12));
@@ -1227,6 +1286,10 @@ public class PanelMapSource2TargetNew extends JPanel {
 		lblRelation.setFont(new Font("Tahoma", Font.BOLD, 12));
 		panelConceptMapping.add(lblRelation, "cell 0 2,alignx trailing");
 		
+		JLabel lblSourceABox = new JLabel("Source ABox Location:");
+		lblSourceABox.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelConceptMapping.add(lblSourceABox, "cell 0 3,alignx trailing");
+		
 		JTextField textFieldSourceABoxPath = new JTextField();
 		textFieldSourceABoxPath.setFont(new Font("Tahoma", Font.BOLD, 12));
 		panelConceptMapping.add(textFieldSourceABoxPath, "cell 1 3,growx");
@@ -1246,14 +1309,33 @@ public class PanelMapSource2TargetNew extends JPanel {
 		btnSourceABox.setFont(new Font("Tahoma", Font.BOLD, 12));
 		panelConceptMapping.add(btnSourceABox, "cell 2 3");
 		
+		JLabel lblTargetABox = new JLabel("Target ABox Location:");
+		lblTargetABox.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelConceptMapping.add(lblTargetABox, "cell 0 4,alignx trailing");
+		
+		JTextField textFieldTargetABoxPath = new JTextField();
+		textFieldTargetABoxPath.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelConceptMapping.add(textFieldTargetABoxPath, "cell 1 4,growx");
+		textFieldTargetABoxPath.setColumns(10);
+		
+		JButton btnTargetABox = new JButton("Open");
+		btnTargetABox.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				Methods methods = new Methods();
+				String sourceABoxLocationString = methods.chooseFile("Select Source ABox File");
+				
+				if (methods.checkString(sourceABoxLocationString)) {
+					textFieldTargetABoxPath.setText(sourceABoxLocationString);
+				}
+			}
+		});
+		btnTargetABox.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelConceptMapping.add(btnTargetABox, "cell 2 4");
+		
 		comboBoxRelation = new JComboBox(recordDefinition.getRelations());
 		comboBoxRelation.setBackground(Color.WHITE);
 		comboBoxRelation.setFont(new Font("Tahoma", Font.BOLD, 12));
 		panelConceptMapping.add(comboBoxRelation, "cell 1 2 2 1,growx");
-		
-		JLabel lblSourceABox = new JLabel("Source ABox Location:");
-		lblSourceABox.setFont(new Font("Tahoma", Font.BOLD, 12));
-		panelConceptMapping.add(lblSourceABox, "cell 0 3,alignx trailing");
 		
 		JPanel panelInstanceMatching = new JPanel();
 		panelInstanceMatching.setBorder(new TitledBorder(UIManager.getBorder("TitledBorder.border"), "Instance Mapping", TitledBorder.CENTER, TitledBorder.TOP, null, new Color(0, 0, 0)));
@@ -1321,9 +1403,52 @@ public class PanelMapSource2TargetNew extends JPanel {
 		JPanel panelOther = new JPanel();
 		JPanel panelExpression = getConceptExpressionPanel();
 		
+		JPanel panelNamespace = new JPanel();
+		panelNamespace.setBackground(Color.WHITE);
+		panelValueSelection.add(panelNamespace, "cell 0 0 2 1,grow");
+		panelNamespace.setLayout(new MigLayout("", "[][][][grow]", "[grow][]"));
+		
+		JLabel lblNamespace = new JLabel("Namespace: ");
+		lblNamespace.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelNamespace.add(lblNamespace, "cell 0 0");
+		
+		JRadioButton rdbtnDefault = new JRadioButton("Default");
+		rdbtnDefault.setFont(new Font("Tahoma", Font.BOLD, 12));
+		rdbtnDefault.setSelected(true);
+		panelNamespace.add(rdbtnDefault, "cell 1 0");
+		
+		JRadioButton rdbtnCustom = new JRadioButton("Custom");
+		rdbtnCustom.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelNamespace.add(rdbtnCustom, "cell 2 0");
+		
+		ButtonGroup group = new ButtonGroup();
+	    group.add(rdbtnDefault);
+	    group.add(rdbtnCustom);
+	    
+
+		rdbtnDefault.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+//				rdbtnCustom.setEnabled(false);
+				textFieldNamespace.setVisible(false);
+			}
+		});
+		
+
+		rdbtnCustom.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+//				rdbtnDefault.setEnabled(false);
+				textFieldNamespace.setVisible(true);			}
+		});
+		
+		textFieldNamespace = new JTextField();
+		textFieldNamespace.setVisible(false);
+		textFieldNamespace.setFont(new Font("Tahoma", Font.BOLD, 12));
+		panelNamespace.add(textFieldNamespace, "cell 3 0,growx");
+		textFieldNamespace.setColumns(10);
+		
 		JLabel lblValueType = new JLabel("Value Type:");
 		lblValueType.setFont(new Font("Tahoma", Font.BOLD, 12));
-		panelValueSelection.add(lblValueType, "cell 0 0,alignx trailing");
+		panelValueSelection.add(lblValueType, "cell 0 1,alignx trailing");
 		
 		String[] keyTypes = {"Source Attribute", "Expression", "Incremental", "Automatic", "Same As Source IRI"};
 		comboBoxValueType = new JComboBox(keyTypes);
@@ -1347,10 +1472,10 @@ public class PanelMapSource2TargetNew extends JPanel {
 		});
 		comboBoxValueType.setBackground(Color.WHITE);
 		comboBoxValueType.setFont(new Font("Tahoma", Font.BOLD, 12));
-		panelValueSelection.add(comboBoxValueType, "cell 1 0,growx");
+		panelValueSelection.add(comboBoxValueType, "cell 1 1,growx");
 		
 		panelValueHolder.setBackground(Color.WHITE);
-		panelValueSelection.add(panelValueHolder, "cell 0 1 2 1,grow");
+		panelValueSelection.add(panelValueHolder, "cell 0 2 2 1,grow");
 		panelValueHolder.setLayout(new CardLayout(0, 0));
 		
 		// panelValueHolder.add(panelExpression, PANEL_CONCEPT_EXPRESSION);
@@ -1374,11 +1499,11 @@ public class PanelMapSource2TargetNew extends JPanel {
 		
 		JLabel lblOperation = new JLabel("Operation:");
 		lblOperation.setFont(new Font("Tahoma", Font.BOLD, 12));
-		panelValueSelection.add(lblOperation, "cell 0 2,alignx trailing");
+		panelValueSelection.add(lblOperation, "cell 0 3,alignx trailing");
 		
 		textFieldOperation = new JTextField();
 		textFieldOperation.setFont(new Font("Tahoma", Font.BOLD, 12));
-		panelValueSelection.add(textFieldOperation, "cell 1 2,growx");
+		panelValueSelection.add(textFieldOperation, "cell 1 3,growx");
 		textFieldOperation.setColumns(10);
 		
 		JPanel panelCommon = new JPanel();
@@ -1432,6 +1557,16 @@ public class PanelMapSource2TargetNew extends JPanel {
 				String sourceCommonProperty = comboBoxSourceProperty.getSelectedItem().toString();
 				String targetCommonProperty = comboBoxTargetProperty.getSelectedItem().toString();
 				String sourceABoxPathString = textFieldSourceABoxPath.getText().toString().trim();
+				String targetABoxPathString = textFieldTargetABoxPath.getText().toString().trim();
+				String namespaceString = "";
+				String customNamespaceString = "";
+				
+				if (rdbtnDefault.isSelected()) {
+					namespaceString = Variables.DEFAULT;
+				} else {
+					namespaceString = Variables.CUSTOM;
+					customNamespaceString = textFieldNamespace.getText().toString().trim();
+				}
 				
 				if (instanceToBeMapped.equals("SPARQL Query")) {
 					instanceToBeMapped = textAreaSparql.getText().toString().trim();
@@ -1440,7 +1575,7 @@ public class PanelMapSource2TargetNew extends JPanel {
 				
 				String value = "";
 				if (sourceConcept.length() == 0 || targetConcept.length() == 0 || instanceToBeMapped.length() == 0 || 
-						dataset.length() == 0) {
+						dataset.length() == 0 || (namespaceString.equals(Variables.CUSTOM) && customNamespaceString.length() == 0)) {
 					JOptionPane.showMessageDialog(null, "Check all inputs", "Error Message", JOptionPane.ERROR_MESSAGE);
 				} else {
 					if (valueType.equals("Source Attribute")) {
@@ -1463,7 +1598,7 @@ public class PanelMapSource2TargetNew extends JPanel {
 						createNewFileIfNotExists();
 					}
 					
-					recordExtraction.addNewHead(instanceToBeMapped, dataset, sourceConcept, targetConcept, relation, value, operation, valueType, sourceCommonProperty, targetCommonProperty, sourceABoxPathString);
+					recordExtraction.addNewHead(instanceToBeMapped, dataset, sourceConcept, targetConcept, relation, value, operation, valueType, sourceCommonProperty, targetCommonProperty, sourceABoxPathString, targetABoxPathString, namespaceString, customNamespaceString);
 					recordExtraction.reloadAll();
 					refreshMappingDefinition();
 					
@@ -1474,6 +1609,7 @@ public class PanelMapSource2TargetNew extends JPanel {
 					textFieldValue.setText("");
 					textAreaKeyAttribute.setText("");
 					textFieldSourceABoxPath.setText("");
+					textFieldNamespace.setText("");
 					
 					comboBoxDataset.setSelectedIndex(0);
 					comboBoxRelation.setSelectedIndex(0);

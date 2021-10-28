@@ -31,11 +31,11 @@ import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 
 public class AutoETLPanel extends JPanel {
-	String basePath = "C:\\Users\\Amrit\\Documents\\SETL\\AutoETL\\";
+	String basePath = "C:\\Users\\Amrit\\Documents\\1\\JoinTransformAUTOETL\\";
 	// String basePath = "C:\\Users\\USER\\Documents\\SETL\\AutoETL\\";
 	
-	String mapFile = basePath + "map_version_1582180161488.ttl";
-	String targetTBoxFile = basePath + "subsidy.ttl";
+	String mapFile = basePath + "map_only_to_check_extraction.ttl";
+	String targetTBoxFile = basePath + "exiobase.ttl";
 
 	/**
 	 * Create the panel.
@@ -152,6 +152,20 @@ public class AutoETLPanel extends JPanel {
 //				ArrayList<String> datasets = (ArrayList<String>) datasetList.getSelectedValuesList();
 				
 				LinkedHashMap<String, ArrayList<ConceptTransform>> dependencyMap = definition.extractDependency(levels, prefixExtraction);
+//				LinkedHashMap<String, ArrayList<ConceptTransform>> dependencyMap2 = definition.extractDependency(datasets, prefixExtraction);
+				
+				for (String selectedString : dependencyMap.keySet()) {
+					ArrayList<ConceptTransform> conceptTransforms = dependencyMap.get(selectedString);
+					
+					for (ConceptTransform conceptTransform : conceptTransforms) {
+						System.out.println("-------------------------------");
+						
+						System.out.println(conceptTransform.getConcept());
+						System.out.println(conceptTransform.getOperationName());
+						System.out.println(conceptTransform.getSourceABoxLocationString());
+						System.out.println(conceptTransform.getTargetFileLocation());
+					}
+				}
 				
 				int xCount = 200, yCount = 200;
 				
@@ -161,8 +175,6 @@ public class AutoETLPanel extends JPanel {
 					
 					PanelETL.Operation previousOperation = null;
 					for (ConceptTransform conceptTransform : conceptList) {
-						
-						
 						Operation newOperation = panelETL.graphPanel.addNewConceptOperation(conceptTransform, xCount, yCount, mapFile, targetTBoxFile);
 						
 						if (previousOperation == null) {
