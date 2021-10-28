@@ -132,7 +132,7 @@ public class RunODETLQuery {
 			Methods methods = new Methods();
 			
 			Long totalDifference = 0L;
-			OnDemandETL demandETL = new OnDemandETL();
+			OnDemandETL demandETL = new OnDemandETL(mapFilePath, targetTBoxFilePath, targetABoxFilePath);
 			Long startTimeLong = methods.getTime();
 			
 			LinkedHashMap<String, ArrayList<String>> queryLevelsArrayList = demandETL

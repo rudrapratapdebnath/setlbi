@@ -14,6 +14,7 @@ import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.vocabulary.RDF;
+import org.apache.poi.ss.formula.functions.Count;
 
 import core.EquationHandler;
 import core.IRIGenerator;
@@ -92,13 +93,15 @@ public class CSVABox {
 					
 					String typeString = prefixString + "#" + sourceTypeString;
 					
-					String resourceKeyString = prefixString + "/" + sourceTypeString + "/" + solveExpression(keyAttribute, valueMap);
+					String resourceKeyString = prefixString + "/" + sourceTypeString + "/" + solveExpression(keyAttribute, valueMap, keyTypeString);
+//					System.out.println(resourceKeyString);
+					
 					Resource resource = model.createResource(resourceKeyString);
 					Resource classResource = model.createResource(typeString);
 					resource.addProperty(RDF.type, classResource);
 					
 					for (String keyString : valueMap.keySet()) {
-						Property property = model.createProperty(prefixString + "#" + keyString);
+						Property property = model.createProperty(prefixString + "/" + keyString);
 						Literal literal = model.createTypedLiteral(valueMap.get(keyString));
 						
 						resource.addProperty(property, literal);
@@ -107,6 +110,7 @@ public class CSVABox {
 					System.out.println("Skipping: " + text);
 				}
 			}
+			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -114,32 +118,42 @@ public class CSVABox {
 			return "Can't extract columns";
 		}
 		
-		if (fileMethods.checkFile(targetFilePath)) {	
-			Model sourceModel = fileMethods.readModelFromPath(targetFilePath);
-			model = sourceModel.add(model);
+		if (fileMethods.checkFile(targetFilePath)) {
+//			Model sourceModel = Methods.readModelFromPath(targetFilePath);
+//			model = sourceModel.add(model);
 		} else {
 			fileMethods.createNewFile(targetFilePath);
 		}
 		
-		fileMethods.saveModel(model, targetFilePath);
+		String string = Methods.modelToString(model, Methods.getFileExtension(targetFilePath));
+		Methods.appendToFile(string, targetFilePath);
+		
+//		fileMethods.saveModel(model, targetFilePath);
 		
 		return "Done";
 	}
 	
-	private String solveExpression(String keyAttribute, LinkedHashMap<String, String> valueMap) {
+	private String solveExpression(String keyAttribute, LinkedHashMap<String, String> valueMap, String keyTypeString) {
 		// TODO Auto-generated method stub
-		keyAttribute = keyAttribute.replace("CONCAT", "");
-		keyAttribute = keyAttribute.substring(1, keyAttribute.length() - 1);
-		
-		String[] partStrings = keyAttribute.split(",");
-		
-		String resourceKeyString = "";
-		
-		for (String part : partStrings) {
-			String valueString = valueMap.get(part.trim());
-			resourceKeyString += valueString;
+		if (keyTypeString.equals("Expression")) {
+			keyAttribute = keyAttribute.replace("CONCAT", "");
+			keyAttribute = keyAttribute.substring(1, keyAttribute.length() - 1);
+			
+			String[] partStrings = keyAttribute.split(",");
+			
+			String resourceKeyString = "";
+			
+			for (String part : partStrings) {
+				String valueString = valueMap.get(part.trim());
+				resourceKeyString += valueString;
+			}
+			return resourceKeyString;
+		} else {
+//			for (String key : valueMap.keySet()) {
+//				System.out.println("Key: " + key);
+//			}
+			return valueMap.get(keyAttribute);
 		}
-		return resourceKeyString;
 	}
 
 	private String getType(String csvSource) {
@@ -147,12 +161,12 @@ public class CSVABox {
 		if (csvSource.contains("\\")) {
 				String[] portions = csvSource.split("\\\\");
 				String[] segments = portions[portions.length - 1].split("\\.");
-				String type = segments[0].toLowerCase();
+				String type = segments[0];
 				return type;
 		} else {
 			String[] portions = csvSource.split("/");
 			String[] segments = portions[portions.length - 1].split("\\.");
-			String type = segments[0].toLowerCase();
+			String type = segments[0];
 			return type;
 		}
 	}

@@ -73,7 +73,9 @@ public class DemoFrame extends JFrame {
 //		PanelOnDemandETL panel = new PanelOnDemandETL();
 //		contentPane.add(panel, "cell 0 0,grow");
 		
-		AutoETLPanel autoETLPanel = new AutoETLPanel();
-		contentPane.add(autoETLPanel, "cell 0 0,grow");
+//		AutoETLPanel autoETLPanel = new AutoETLPanel();
+		
+		PanelHead panelHead = new PanelHead();
+		contentPane.add(panelHead, "cell 0 0,grow");
 	}
 }
